@@ -63,3 +63,17 @@ const parseExcelFile = (uploadedFile) => {
   // Read the file as ArrayBuffer
   reader.readAsArrayBuffer(uploadedFile);
 };
+
+const mapColumnsToInternal = (data) => {
+  return data.map(row => {
+    const mappedRow = {};
+    Object.keys(row).forEach(excelColumn => {
+      // Check if there's a mapping for the column
+      const internalColumn = columnMapping[excelColumn];
+      if (internalColumn) {
+        mappedRow[internalColumn] = row[excelColumn]; // Replace with internal column name
+      }
+    });
+    return mappedRow; // Return row with only internal columns
+  });
+};
