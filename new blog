@@ -350,3 +350,15 @@ const ParentComponent = () => {
 };
 
 export default ParentComponent;
+
+
+const parseExcelFile = (uploadedFile) => {
+  const fileExtension = uploadedFile.name.split('.').pop().toLowerCase();
+  if (!['xls', 'xlsx', 'csv'].includes(fileExtension)) {
+    setFileError('Invalid file type. Please upload .xls, .xlsx, or .csv files.');
+    return;
+  }
+  // Proceed with parsing if the file extension is valid
+  const reader = new FileReader();
+  // ... rest of your parsing logic
+};
