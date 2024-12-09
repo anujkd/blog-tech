@@ -1,0 +1,97 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
+import { AgGridReact } from 'ag-grid-react';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
+import axios from 'axios';
+
+const GenericTable2 = ({
+  columnDefs = [],
+  rowData = [],
+  paginationPageSize = 20,
+  serverSide = false,
+  apiUrl = '',
+  fetchDataParams = {},
+  onGridReady = () => {},
+}) => {
+  const [gridApi, setGridApi] = useState(null);
+  const [gridColumnApi, setGridColumnApi] = useState(null);
+
+  // Server-side data fetching logic (if needed)
+  const fetchServerData = async (params) => {
+    if (!apiUrl) return;
+    try {
+      const response = await axios.get(apiUrl, {
+        params: {
+          page: params.start / params.end + 1,  // Page number for pagination
+          pageSize: params.end - params.start,  // Page size
+          ...fetchDataParams,
+          sortBy: params.sortModel.length > 0 ? params.sortModel[0].colId : '',
+          sortOrder: params.sortModel.length > 0 ? params.sortModel[0].sort : '',
+          filter: params.filterModel
+        }
+      });
+      const { data, totalCount } = response.data;  // Assuming API returns this structure
+      params.successCallback(data, totalCount);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (serverSide && gridApi) {
+      gridApi.setDatasource({
+        getRows: (params) => fetchServerData(params),
+      });
+    }
+  }, [serverSide, gridApi]);
+
+  const onGridReadyHandler = (params) => {
+    setGridApi(params.api);
+    setGridColumnApi(params.columnApi);
+    onGridReady(params);
+  };
+
+  // New callback for handling clipboard operations
+  const onCellValueChanged = useCallback((params) => {
+    if (params.newValue !== params.oldValue) {
+      console.log(`Cell value changed from ${params.oldValue} to ${params.newValue}`);
+    }
+    // Here you can handle any logic for when a cell value changes, if needed for clipboard operations
+  }, []);
+
+  return (
+    <div className="ag-theme-alpine" style={{ height: '400px', width: '100%' }}>
+      <AgGridReact
+        onGridReady={onGridReadyHandler}
+        columnDefs={columnDefs}
+        rowData={rowData}
+        paginationPageSize={paginationPageSize}
+        pagination={true}
+        enableSorting={true}
+        enableFilter={true}
+        domLayout="autoHeight"
+        rowModelType={serverSide ? 'serverSide' : 'clientSide'}
+        cellSelection={true}
+        enableCellTextSelection={true}  // Enable text selection in cells
+        processCellForClipboard={useCallback(params => params.value, [])}  // Return raw value for clipboard
+        processHeaderForClipboard={useCallback(params => params.column.getColDef().headerName, [])}
+        processGroupHeaderForClipboard={useCallback(params => params.columnGroup.getColGroupDef().headerName, [])}
+        onCellValueChanged={onCellValueChanged}  // Added for potential clipboard operations
+      />
+    </div>
+  );
+};
+
+// Prop validation with PropTypes
+GenericTable2.propTypes = {
+  columnDefs: PropTypes.array.isRequired,
+  rowData: PropTypes.array.isRequired,
+  paginationPageSize: PropTypes.number,
+  serverSide: PropTypes.bool,
+  apiUrl: PropTypes.string,
+  fetchDataParams: PropTypes.object,
+  onGridReady: PropTypes.func,
+};
+
+export default GenericTable2;
