@@ -95,3 +95,53 @@ GenericTable2.propTypes = {
 };
 
 export default GenericTable2;
+
+
+
+import React from 'react';
+
+function validateUniqueEntityNames(existingData, newData) {
+  // Merge both arrays into one
+  const allEntities = [...existingData, ...newData];
+
+  // Use an object to track names (case-insensitive)
+  const nameMap = {};
+
+  // Check for duplicates in the merged array
+  for (const entity of allEntities) {
+    const lowercaseName = entity.name.toLowerCase();
+    if (nameMap[lowercaseName]) {
+      return { error: `Duplicate entity name found: ${entity.name}` };
+    }
+    nameMap[lowercaseName] = true;
+  }
+
+  // If we've made it here, all entity names are unique
+  return { error: null };
+}
+
+function App() {
+  const existingEntities = [
+    { name: "Entity1", field1: "value1" },
+    { name: "Entity2", field1: "value2" }
+  ];
+
+  const newEntities = [
+    { name: "entity3", field1: "value3" },
+    { name: "entity2", field1: "duplicate" } // This should trigger an error due to case insensitivity
+  ];
+
+  const result = validateUniqueEntityNames(existingEntities, newEntities);
+
+  return (
+    <div>
+      {result.error ? (
+        <p>Error: {result.error}</p>
+      ) : (
+        <p>All entity names are unique.</p>
+      )}
+    </div>
+  );
+}
+
+export default App;
