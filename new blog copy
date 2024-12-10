@@ -145,3 +145,50 @@ function App() {
 }
 
 export default App;
+
+
+import React from 'react';
+import { uniqBy, every } from 'lodash';
+
+const validateEntityNames = (existingEntities, newEntities) => {
+  const allEntities = [...existingEntities, ...newEntities];
+  
+  // Check if all names are non-empty, non-null, and non-undefined
+  if (!every(allEntities, entity => entity.name && typeof entity.name === 'string' && entity.name.trim() !== '')) {
+    return { error: "Entity name cannot be empty, null, or undefined." };
+  }
+
+  // Check for uniqueness
+  const uniqueEntities = uniqBy(allEntities, 'name');
+  if (uniqueEntities.length !== allEntities.length) {
+    return { error: "Duplicate entity names found." };
+  }
+
+  return { error: null }; // All checks passed
+};
+
+const ExampleComponent = () => {
+  const existingEntities = [
+    { name: "Entity1", field1: "value1" },
+    { name: "Entity2", field1: "value2" }
+  ];
+
+  const newEntities = [
+    { name: "Entity3", field1: "value3" },
+    { name: "", field1: "duplicate" } // This should trigger an error due to empty name
+  ];
+
+  const validationResult = validateEntityNames(existingEntities, newEntities);
+
+  return (
+    <div>
+      {validationResult.error ? (
+        <p>Error: {validationResult.error}</p>
+      ) : (
+        <p>All entity names are valid and unique.</p>
+      )}
+    </div>
+  );
+};
+
+export default ExampleComponent;
