@@ -192,3 +192,57 @@ const ExampleComponent = () => {
 };
 
 export default ExampleComponent;
+
+
+import React from 'react';
+
+const validateEntityNames = (existingEntities, newEntities) => {
+  const allEntities = [...existingEntities, ...newEntities];
+
+  // Check if all names are non-empty, non-null, and non-undefined
+  const allNames = allEntities.map((entity) => entity.name?.trim()).filter(name => name);
+
+  if (allNames.length !== allEntities.length) {
+    return { error: "Entity name cannot be empty, null, or undefined." };
+  }
+
+  // Convert all names to lowercase and check for uniqueness
+  const lowerCaseNames = allNames.map((name) => name.toLowerCase());
+
+  // Use a Set to eliminate duplicates (case-insensitive)
+  const uniqueNames = [...new Set(lowerCaseNames)];
+
+  // If the length of uniqueNames is different, it means there are duplicates
+  if (uniqueNames.length !== lowerCaseNames.length) {
+    return { error: "Duplicate entity names found (case-insensitive)." };
+  }
+
+  return { error: null }; // All checks passed
+};
+
+const ExampleComponent = () => {
+  const existingEntities = [
+    { name: "Entity1", field1: "value1" },
+    { name: "Entity2", field1: "value2" }
+  ];
+
+  const newEntities = [
+    { name: "Entity3", field1: "value3" },
+    { name: "entity1", field1: "duplicate" }, // This should trigger an error due to case-insensitive duplicate name
+    { name: " ", field1: "invalid" } // This should trigger an error due to empty name
+  ];
+
+  const validationResult = validateEntityNames(existingEntities, newEntities);
+
+  return (
+    <div>
+      {validationResult.error ? (
+        <p>Error: {validationResult.error}</p>
+      ) : (
+        <p>All entity names are valid and unique.</p>
+      )}
+    </div>
+  );
+};
+
+export default ExampleComponent;
