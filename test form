@@ -1,0 +1,141 @@
+// AttributeForm.js
+import React, { useState } from 'react';
+import DialogComponent from './DialogComponent'; // Adjust the import path as necessary
+import TextField from '@mui/material/TextField';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormHelperText from '@mui/material/FormHelperText';
+
+const AttributeForm = ({ onClose }) => {
+  const [formData, setFormData] = useState({
+    attributeName: '',
+    attributeType: '',
+    attributeDefinition: '',
+    criticalDataElement: 'no',
+    attributeNullable: 'yes'
+  });
+  const [errors, setErrors] = useState({});
+
+  // Handle form input changes
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
+    setErrors(prevErrors => ({
+      ...prevErrors,
+      [name]: ''
+    }));
+  };
+
+  // Form validation
+  const validate = () => {
+    let tempErrors = {};
+    if (!formData.attributeName || formData.attributeName.length < 3) {
+      tempErrors.attributeName = 'Attribute Name must be at least 3 characters long.';
+    }
+    if (!formData.attributeType) {
+      tempErrors.attributeType = 'Attribute Type is required.';
+    }
+    if (!formData.attributeDefinition || formData.attributeDefinition.length < 3) {
+      tempErrors.attributeDefinition = 'Attribute Definition must be at least 3 characters long.';
+    }
+    setErrors(tempErrors);
+    return Object.keys(tempErrors).length === 0;
+  };
+
+  // Handle form submission
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (validate()) {
+      console.log(formData);
+      onClose(); // Close the form after submission
+    }
+  };
+
+  // Form content for the dialog
+  const formContent = (
+    <form>
+      <TextField
+        autoFocus
+        margin="dense"
+        name="attributeName"
+        label="Attribute Name"
+        type="text"
+        fullWidth
+        value={formData.attributeName}
+        onChange={handleChange}
+        error={!!errors.attributeName}
+        helperText={errors.attributeName}
+      />
+      <FormControl fullWidth margin="dense" error={!!errors.attributeType}>
+        <InputLabel id="attribute-type-label">Attribute Type</InputLabel>
+        <Select
+          labelId="attribute-type-label"
+          name="attributeType"
+          value={formData.attributeType}
+          label="Attribute Type"
+          onChange={handleChange}
+        >
+          <MenuItem value="Number">Number</MenuItem>
+          <MenuItem value="String">String</MenuItem>
+          <MenuItem value="Float">Float</MenuItem>
+          <MenuItem value="Boolean">Boolean</MenuItem>
+          <MenuItem value="Object">Object</MenuItem>
+          <MenuItem value="Array">Array</MenuItem>
+        </Select>
+        {errors.attributeType && <FormHelperText>{errors.attributeType}</FormHelperText>}
+      </FormControl>
+      <TextField
+        margin="dense"
+        name="attributeDefinition"
+        label="Attribute Definition"
+        type="text"
+        fullWidth
+        multiline
+        rows={4}
+        value={formData.attributeDefinition}
+        onChange={handleChange}
+        error={!!errors.attributeDefinition}
+        helperText={errors.attributeDefinition}
+      />
+      <FormControl component="fieldset" margin="dense">
+        <legend>Critical Data Element</legend>
+        <RadioGroup row aria-label="criticalDataElement" name="criticalDataElement" value={formData.criticalDataElement} onChange={handleChange}>
+          <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+          <FormControlLabel value="no" control={<Radio />} label="No" />
+        </RadioGroup>
+      </FormControl>
+      <FormControl component="fieldset" margin="dense">
+        <legend>Is Nullable</legend>
+        <RadioGroup row aria-label="attributeNullable" name="attributeNullable" value={formData.attributeNullable} onChange={handleChange}>
+          <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+          <FormControlLabel value="no" control={<Radio />} label="No" />
+        </RadioGroup>
+      </FormControl>
+    </form>
+  );
+
+  return (
+    <DialogComponent
+      open={true}
+      onClose={onClose}
+      title="Add Attribute"
+      content={formContent}
+      footerActions={{
+        onCancel: onClose,
+        onAdd: handleSubmit,
+      }}
+      size="md"
+      disableBackdropClick={true} // Prevent closing the dialog by clicking outside if needed
+    />
+  );
+};
+
+export default AttributeForm;
