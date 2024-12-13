@@ -246,3 +246,212 @@ const ExampleComponent = () => {
 };
 
 export default ExampleComponent;
+
+
+
+// AttributeForm.js
+import React, { useState } from 'react';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import TextField from '@mui/material/TextField';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormHelperText from '@mui/material/FormHelperText';
+import { Button } from '@mui/material';
+
+const AttributeForm = ({ onClose }) => {
+  const [formData, setFormData] = useState({
+    attributeName: '',
+    attributeType: '',
+    attributeDefinition: '',
+    criticalDataElement: 'no',
+    attributeNullable: 'yes'
+  });
+  const [errors, setErrors] = useState({});
+
+  // Handle form input changes
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
+    setErrors(prevErrors => ({
+      ...prevErrors,
+      [name]: ''
+    }));
+  };
+
+  // Form validation
+  const validate = () => {
+    let tempErrors = {};
+    if (!formData.attributeName || formData.attributeName.length < 3) {
+      tempErrors.attributeName = 'Attribute Name must be at least 3 characters long.';
+    }
+    if (!formData.attributeType) {
+      tempErrors.attributeType = 'Attribute Type is required.';
+    }
+    if (!formData.attributeDefinition || formData.attributeDefinition.length < 3) {
+      tempErrors.attributeDefinition = 'Attribute Definition must be at least 3 characters long.';
+    }
+    setErrors(tempErrors);
+    return Object.keys(tempErrors).length === 0;
+  };
+
+  // Handle form submission
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (validate()) {
+      console.log(formData);
+      onClose(); // Close the form after submission
+    }
+  };
+
+  return (
+    <Dialog open={true} onClose={onClose}>
+      <DialogTitle>Add Attribute</DialogTitle>
+      <DialogContent>
+        <form>
+          <TextField
+            autoFocus
+            margin="dense"
+            name="attributeName"
+            label="Attribute Name"
+            type="text"
+            fullWidth
+            value={formData.attributeName}
+            onChange={handleChange}
+            error={!!errors.attributeName}
+            helperText={errors.attributeName}
+          />
+          <FormControl fullWidth margin="dense" error={!!errors.attributeType}>
+            <InputLabel id="attribute-type-label">Attribute Type</InputLabel>
+            <Select
+              labelId="attribute-type-label"
+              name="attributeType"
+              value={formData.attributeType}
+              label="Attribute Type"
+              onChange={handleChange}
+            >
+              <MenuItem value="Number">Number</MenuItem>
+              <MenuItem value="String">String</MenuItem>
+              <MenuItem value="Float">Float</MenuItem>
+              <MenuItem value="Boolean">Boolean</MenuItem>
+              <MenuItem value="Object">Object</MenuItem>
+              <MenuItem value="Array">Array</MenuItem>
+            </Select>
+            {errors.attributeType && <FormHelperText>{errors.attributeType}</FormHelperText>}
+          </FormControl>
+          <TextField
+            margin="dense"
+            name="attributeDefinition"
+            label="Attribute Definition"
+            type="text"
+            fullWidth
+            multiline
+            rows={4}
+            value={formData.attributeDefinition}
+            onChange={handleChange}
+            error={!!errors.attributeDefinition}
+            helperText={errors.attributeDefinition}
+          />
+          <FormControl component="fieldset" margin="dense">
+            <legend>Critical Data Element</legend>
+            <RadioGroup row aria-label="criticalDataElement" name="criticalDataElement" value={formData.criticalDataElement} onChange={handleChange}>
+              <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+              <FormControlLabel value="no" control={<Radio />} label="No" />
+            </RadioGroup>
+          </FormControl>
+          <FormControl component="fieldset" margin="dense">
+            <legend>Is Nullable</legend>
+            <RadioGroup row aria-label="attributeNullable" name="attributeNullable" value={formData.attributeNullable} onChange={handleChange}>
+              <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+              <FormControlLabel value="no" control={<Radio />} label="No" />
+            </RadioGroup>
+          </FormControl>
+        </form>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSubmit}>Submit</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+export default AttributeForm;
+
+
+
+function App() {
+  const [count, setCount] = useState(0)
+  const [openForm, setOpenForm] = useState(false);
+
+  const handleClickOpen = () => {
+    setOpenForm(true);
+  };
+
+  const handleCloseForm = () => {
+    setOpenForm(false);
+  };
+
+  return (
+    <>
+     <Button variant="outlined" onClick={handleClickOpen}>
+        Open Form
+      </Button>
+      {openForm && <AttributeForm onClose={handleCloseForm} />}
+
+      <ParentComponent />
+    </>
+  )
+}
+
+
+
+const validateBulkUpload = (files) => {
+  let errors = [];
+
+  files.forEach((file, index) => {
+    let fileErrors = {};
+    
+    // Assuming each file contains a JSON object with the same structure as formData
+    if (typeof file !== 'object' || file === null) {
+      fileErrors.general = 'File content must be a valid JSON object';
+    } else {
+      // Check each field
+      if (!file.attributeName || file.attributeName.length < 3) {
+        fileErrors.attributeName = 'Attribute Name must be at least 3 characters long.';
+      }
+      if (!file.attributeType) {
+        fileErrors.attributeType = 'Attribute Type is required.';
+      }
+      if (!file.attributeDefinition || file.attributeDefinition.length < 3) {
+        fileErrors.attributeDefinition = 'Attribute Definition must be at least 3 characters long.';
+      }
+      if (!['yes', 'no'].includes(file.criticalDataElement)) {
+        fileErrors.criticalDataElement = 'Critical Data Element must be either "yes" or "no".';
+      }
+      if (!['yes', 'no'].includes(file.attributeNullable)) {
+        fileErrors.attributeNullable = 'Is Nullable must be either "yes" or "no".';
+      }
+    }
+
+    if (Object.keys(fileErrors).length > 0) {
+      errors.push({ file: index + 1, errors: fileErrors });
+    }
+  });
+
+  if (errors.length > 0) {
+    throw new Error(JSON.stringify(errors, null, 2));
+  }
+
+  return true; // All files passed validation
+};
