@@ -139,3 +139,68 @@ const AttributeForm = ({ onClose }) => {
 };
 
 export default AttributeForm;
+
+import React from 'react';
+import { Box, IconButton, Menu, MenuItem } from '@mui/material';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+
+const GenericTable2 = ({ columnDefs, rowData, paginationPageSize }) => {
+  const [anchorEl, setAnchorEl] = React.useState(null);
+  const [selectedRow, setSelectedRow] = React.useState(null);
+
+  const handleClick = (event, row) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedRow(row);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleEdit = () => {
+    console.log('Edit action for:', selectedRow);
+    // Implement edit logic here
+    handleClose();
+  };
+
+  const handleDelete = () => {
+    console.log('Delete action for:', selectedRow);
+    // Implement delete logic here
+    handleClose();
+  };
+
+  // Add an actions column to columnDefs
+  const actionsColumn = {
+    Header: 'Actions',
+    Cell: ({ row }) => (
+      <Box>
+        <IconButton onClick={(e) => handleClick(e, row.original)}>
+          <MoreVertIcon />
+        </IconButton>
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleClose}
+        >
+          <MenuItem onClick={handleEdit}>Edit</MenuItem>
+          <MenuItem onClick={handleDelete}>Delete</MenuItem>
+        </Menu>
+      </Box>
+    ),
+  };
+
+  // Combine with existing column definitions
+  const columns = [...columnDefs, actionsColumn];
+
+  // Here you would render your table with the new columns
+  // This is just a conceptual representation; adjust based on your table rendering logic
+  return (
+    <div>
+      {/* Your table rendering logic here */}
+      {/* Example using Material-UI Table if you're using it */}
+      {/* <Table columns={columns} data={rowData} /> */}
+    </div>
+  );
+};
+
+export default GenericTable2;
