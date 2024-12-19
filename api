@@ -1,0 +1,179 @@
+// apiService.js (or api.js)
+import axios from 'axios';
+
+// Determine base URL based on environment
+const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://jsonplaceholder.typicode.com'; // Fallback to localhost
+
+const api = axios.create({
+  baseURL: baseURL,
+  timeout: 10000, // Optional: Set a timeout for requests
+  headers: {
+    'Content-Type': 'application/json', // Default content type
+    // Add other common headers if needed (e.g., Authorization)
+  },
+});
+
+// Request interceptor for adding authorization token dynamically
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token'); // Or from wherever you store it
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for handling errors globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error("API Error:", error.response.status, error.response.data);
+      // Handle specific error codes (e.g., 401 Unauthorized)
+      if (error.response.status === 401) {
+        // Redirect to login or perform other actions
+        localStorage.removeItem('token'); // Example: clear token on 401
+        // window.location.href = '/login'; // Example: redirect
+      }
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error("API Error: No response received", error.request);
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error("API Error:", error.message);
+    }
+    return Promise.reject(error); // Re-throw the error for component-level handling
+  }
+);
+
+const apiService = {
+  get: (url, config) => api.get(url, config),
+  post: (url, data, config) => api.post(url, data, config),
+  put: (url, data, config) => api.put(url, data, config),
+  delete: (url, config) => api.delete(url, config),
+  patch: (url, data, config) => api.patch(url,data, config),
+  // Add other HTTP methods as needed (PATCH, etc.)
+};
+
+export default apiService;
+
+
+
+
+// UsersComponent.js
+import React, { useState, useEffect } from 'react';
+import apiService from './store/apiService';
+
+function UsersComponent() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await apiService.get('/users');
+        setUsers(response.data);
+      } catch (err) {
+        setError(err.message); // Extract error message
+        console.error("Error fetching users:", err); // Log the full error for debugging
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  if (loading) {
+    return <div>Loading users...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
+
+  return (
+    <div>
+      <h1>Users from JSONPlaceholder</h1>
+      <ul>
+        {users.map((user) => (
+          <li key={user.id}>
+            <strong>userName: {user.name}</strong> , user emailId: ({user.email}) - companyName: {user.company.name}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default UsersComponent;
+
+
+export const USERS_BASE_URL = '/users';
+export const USER_BY_ID_URL = (id) => `/users/${id}`;
+// ... other user-related URLs
+
+
+import api from '../../apiService';
+import { USERS_BASE_URL, USER_BY_ID_URL } from './usersUrls';
+
+export const getUsers = async () => {
+  try {
+    const response = await api.get(USERS_BASE_URL);
+    return response.data;
+  } catch (error) {
+    throw error; // Re-throw for component-level handling
+  }
+};
+
+export const getUserById = async (id) => {
+    try {
+        const response = await api.get(USER_BY_ID_URL(id));
+        return response.data
+    } catch (error) {
+        throw error
+    }
+}
+
+// ... other user-related API functions
+
+
+export * from './usersApi';
+export * from './usersUrls';
+
+
+
+export { default as api } from './apiService';
+export * as usersApi from './resources/users';
+export * as productsApi from './resources/products';
+export * as authApi from './resources/auth';
+
+
+import { useEffect, useState } from 'react';
+import { usersApi } from '../api'; // Import from the top-level api/index.js
+
+function MyComponent() {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const fetchedUsers = await usersApi.getUsers();
+        setUsers(fetchedUsers);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  // ...
+}
