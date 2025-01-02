@@ -1,0 +1,99 @@
+
+http://localhost:3000/api/chat/session
+{
+    "sessionId": "1779edbc-975c-4815-8e96-f7055723dba6",
+    "created": 1735794492700,
+    "model": "google/gemma-2-2b-it"
+}
+
+http://localhost:3000/api/chat/5bb3f80d-ba7a-4c83-a981-3947df67e556/message
+{
+    "message": {
+        "id": "095b6746-2170-4e83-8fd0-5c93428bead2",
+        "role": "assistant",
+        "content": "Hi! How can I help you today? 😄",
+        "timestamp": "2025-01-02T05:10:57.225Z"
+    },
+    "created": 1735794657225,
+    "model": "google/gemma-2-2b-it"
+}
+
+http://localhost:3000/api/chat/d9bbe155-3279-4b35-9849-51c6c6c47539/history
+{
+    "history": [
+        {
+            "id": "26bda89e-d7cb-42ce-9e27-d1bd21fac56c",
+            "title": "hi",
+            "lastUpdated": "2025-01-02T05:15:42.058Z",
+            "created": "2025-01-02T05:15:36.529Z",
+            "preview": "what is ai"
+        },
+        {
+            "id": "5b4866e7-95a1-4caa-af9f-f21db90dbeaf",
+            "title": "New Chat",
+            "lastUpdated": "2025-01-02T05:15:36.527Z",
+            "created": "2025-01-02T05:15:36.527Z",
+            "preview": ""
+        },
+        {
+            "id": "aaf76c50-cd22-4aaf-97a0-5f5c557d63df",
+            "title": "New Chat",
+            "lastUpdated": "2025-01-02T05:14:17.349Z",
+            "created": "2025-01-02T05:14:17.349Z",
+            "preview": "what is weather"
+        },
+        {
+            "id": "c93e0061-d33e-4a5c-8b31-79fa0d502637",
+            "title": "New Chat",
+            "lastUpdated": "2025-01-02T05:14:17.347Z",
+            "created": "2025-01-02T05:14:17.347Z",
+            "preview": ""
+        },
+        {
+            "id": "4eadc19f-7a80-4fa4-9c44-bf0b20836143",
+            "title": "New Chat",
+            "lastUpdated": "2025-01-02T05:12:51.895Z",
+            "created": "2025-01-02T05:12:51.895Z",
+            "preview": "what is java"
+        },
+        {
+            "id": "6c101d03-8c16-4504-b7f7-2848331702ab",
+            "title": "New Chat",
+            "lastUpdated": "2025-01-02T05:12:51.892Z",
+            "created": "2025-01-02T05:12:51.892Z",
+            "preview": ""
+        }
+    ],
+    "count": 6,
+    "model": "google/gemma-2-2b-it"
+}
+
+http://localhost:3000/api/chat/26bda89e-d7cb-42ce-9e27-d1bd21fac56c/history
+
+{
+    "id": "26bda89e-d7cb-42ce-9e27-d1bd21fac56c",
+    "title": "hi",
+    "messages": [
+        {
+            "id": "cfa96e7d-b5d5-4e41-ae03-97ee2a7232a1",
+            "role": "user",
+            "content": "hi",
+            "timestamp": "2025-01-02T05:15:40.903Z"
+        },
+        {
+            "id": "3c2577d7-4d56-4c16-b361-f11b1b42a47b",
+            "role": "assistant",
+            "content": "Hello! 👋  How can I help you today? 😊",
+            "timestamp": "2025-01-02T05:15:42.058Z"
+        },
+        {
+            "id": "a844c105-c947-46b3-9f9a-6dd7ce0102da",
+            "role": "user",
+            "content": "what is ai ",
+            "timestamp": "2025-01-02T05:16:18.193Z"
+        }
+    ],
+    "created": "2025-01-02T05:15:36.529Z",
+    "lastUpdated": "2025-01-02T05:15:42.058Z",
+    "model": "google/gemma-2-2b-it"
+}
