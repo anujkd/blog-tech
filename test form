@@ -1,206 +1,25 @@
-// AttributeForm.js
-import React, { useState } from 'react';
-import DialogComponent from './DialogComponent'; // Adjust the import path as necessary
-import TextField from '@mui/material/TextField';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Radio from '@mui/material/Radio';
-import RadioGroup from '@mui/material/RadioGroup';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import FormHelperText from '@mui/material/FormHelperText';
+// Basic usage
+<GenericTable
+  columnDefs={columnDefs}
+  rowData={staticData}
+/>
 
-const AttributeForm = ({ onClose }) => {
-  const [formData, setFormData] = useState({
-    attributeName: '',
-    attributeType: '',
-    attributeDefinition: '',
-    criticalDataElement: 'no',
-    attributeNullable: 'yes'
-  });
-  const [errors, setErrors] = useState({});
-
-  // Handle form input changes
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setFormData(prevState => ({
-      ...prevState,
-      [name]: value
-    }));
-    setErrors(prevErrors => ({
-      ...prevErrors,
-      [name]: ''
-    }));
-  };
-
-  // Form validation
-  const validate = () => {
-    let tempErrors = {};
-    if (!formData.attributeName || formData.attributeName.length < 3) {
-      tempErrors.attributeName = 'Attribute Name must be at least 3 characters long.';
+// Advanced usage with customization
+<GenericTable
+  columnDefs={columnDefs}
+  serverSide={true}
+  apiUrl="/api/data"
+  gridHeight="600px"
+  enableExport={true}
+  customLoadingOverlay={<CustomLoader />}
+  axiosConfig={{
+    headers: {
+      'Authorization': 'Bearer token'
     }
-    if (!formData.attributeType) {
-      tempErrors.attributeType = 'Attribute Type is required.';
-    }
-    if (!formData.attributeDefinition || formData.attributeDefinition.length < 3) {
-      tempErrors.attributeDefinition = 'Attribute Definition must be at least 3 characters long.';
-    }
-    setErrors(tempErrors);
-    return Object.keys(tempErrors).length === 0;
-  };
-
-  // Handle form submission
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    if (validate()) {
-      console.log(formData);
-      onClose(); // Close the form after submission
-    }
-  };
-
-  // Form content for the dialog
-  const formContent = (
-    <form>
-      <TextField
-        autoFocus
-        margin="dense"
-        name="attributeName"
-        label="Attribute Name"
-        type="text"
-        fullWidth
-        value={formData.attributeName}
-        onChange={handleChange}
-        error={!!errors.attributeName}
-        helperText={errors.attributeName}
-      />
-      <FormControl fullWidth margin="dense" error={!!errors.attributeType}>
-        <InputLabel id="attribute-type-label">Attribute Type</InputLabel>
-        <Select
-          labelId="attribute-type-label"
-          name="attributeType"
-          value={formData.attributeType}
-          label="Attribute Type"
-          onChange={handleChange}
-        >
-          <MenuItem value="Number">Number</MenuItem>
-          <MenuItem value="String">String</MenuItem>
-          <MenuItem value="Float">Float</MenuItem>
-          <MenuItem value="Boolean">Boolean</MenuItem>
-          <MenuItem value="Object">Object</MenuItem>
-          <MenuItem value="Array">Array</MenuItem>
-        </Select>
-        {errors.attributeType && <FormHelperText>{errors.attributeType}</FormHelperText>}
-      </FormControl>
-      <TextField
-        margin="dense"
-        name="attributeDefinition"
-        label="Attribute Definition"
-        type="text"
-        fullWidth
-        multiline
-        rows={4}
-        value={formData.attributeDefinition}
-        onChange={handleChange}
-        error={!!errors.attributeDefinition}
-        helperText={errors.attributeDefinition}
-      />
-      <FormControl component="fieldset" margin="dense">
-        <legend>Critical Data Element</legend>
-        <RadioGroup row aria-label="criticalDataElement" name="criticalDataElement" value={formData.criticalDataElement} onChange={handleChange}>
-          <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-          <FormControlLabel value="no" control={<Radio />} label="No" />
-        </RadioGroup>
-      </FormControl>
-      <FormControl component="fieldset" margin="dense">
-        <legend>Is Nullable</legend>
-        <RadioGroup row aria-label="attributeNullable" name="attributeNullable" value={formData.attributeNullable} onChange={handleChange}>
-          <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-          <FormControlLabel value="no" control={<Radio />} label="No" />
-        </RadioGroup>
-      </FormControl>
-    </form>
-  );
-
-  return (
-    <DialogComponent
-      open={true}
-      onClose={onClose}
-      title="Add Attribute"
-      content={formContent}
-      footerActions={{
-        onCancel: onClose,
-        onAdd: handleSubmit,
-      }}
-      size="md"
-      disableBackdropClick={true} // Prevent closing the dialog by clicking outside if needed
-    />
-  );
-};
-
-export default AttributeForm;
-
-import React from 'react';
-import { Box, IconButton, Menu, MenuItem } from '@mui/material';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-
-const GenericTable2 = ({ columnDefs, rowData, paginationPageSize }) => {
-  const [anchorEl, setAnchorEl] = React.useState(null);
-  const [selectedRow, setSelectedRow] = React.useState(null);
-
-  const handleClick = (event, row) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedRow(row);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleEdit = () => {
-    console.log('Edit action for:', selectedRow);
-    // Implement edit logic here
-    handleClose();
-  };
-
-  const handleDelete = () => {
-    console.log('Delete action for:', selectedRow);
-    // Implement delete logic here
-    handleClose();
-  };
-
-  // Add an actions column to columnDefs
-  const actionsColumn = {
-    Header: 'Actions',
-    Cell: ({ row }) => (
-      <Box>
-        <IconButton onClick={(e) => handleClick(e, row.original)}>
-          <MoreVertIcon />
-        </IconButton>
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleClose}
-        >
-          <MenuItem onClick={handleEdit}>Edit</MenuItem>
-          <MenuItem onClick={handleDelete}>Delete</MenuItem>
-        </Menu>
-      </Box>
-    ),
-  };
-
-  // Combine with existing column definitions
-  const columns = [...columnDefs, actionsColumn];
-
-  // Here you would render your table with the new columns
-  // This is just a conceptual representation; adjust based on your table rendering logic
-  return (
-    <div>
-      {/* Your table rendering logic here */}
-      {/* Example using Material-UI Table if you're using it */}
-      {/* <Table columns={columns} data={rowData} /> */}
-    </div>
-  );
-};
-
-export default GenericTable2;
+  }}
+  onError={(error) => console.error('Grid error:', error)}
+  customGridOptions={{
+    rowSelection: 'multiple',
+    animateRows: true
+  }}
+/>
