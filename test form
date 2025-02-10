@@ -900,3 +900,12 @@ GenericTable13.displayName = 'GenericTable13';
 
 export default GenericTable13;
 
+
+const handleSomeEvent = async () => {
+  try {
+    await tableRef.current?.refreshData();
+  } catch (error) {
+    console.error('Error refreshing data:', error);
+  }
+};
+
