@@ -50,3 +50,190 @@ function YourComponent() {
     />
   );
 }
+
+
+
+import React, { useState, useCallback, useRef, useMemo } from 'react';
+import PropTypes from 'prop-types';
+import { AgGridReact } from 'ag-grid-react';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
+import axios from 'axios';
+
+const GenericTable12 = ({
+  columnDefs,
+  rowData = [],
+  paginationPageSize = 20,
+  serverSide = false,
+  apiUrl = '',
+  fetchDataParams = {},
+  onGridReady = () => {},
+  onError = () => {},
+  gridTheme = 'ag-theme-alpine',
+  gridHeight = '500px',
+  gridWidth = '100%',
+  customLoadingOverlay,
+  axiosConfig = {},
+  defaultColDef = {},
+  enableExport = false,
+  noRowsMessage = 'No rows to show',
+  loadingMessage = 'Loading data...',
+  customGridOptions = {},
+  onDataLoaded = () => {},
+  autoRefreshInterval = 0, // Add auto-refresh interval in milliseconds (0 to disable)
+}) => {
+  const gridRef = useRef(null);
+  const totalRowsRef = useRef(0);
+  const currentPageSizeRef = useRef(paginationPageSize);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const autoRefreshIntervalRef = useRef(null);
+
+  // Handle API errors
+  const handleError = useCallback((err) => {
+    const errorMessage = err?.response?.data?.message || err.message || 'An error occurred';
+    setError({ message: errorMessage, timestamp: new Date() });
+    onError(err);
+    setLoading(false);
+  }, [onError]);
+
+  // Refresh data function
+  const refreshData = useCallback(async () => {
+    if (!gridRef.current?.api || loading) return;
+
+    setLoading(true);
+    
+    try {
+      if (serverSide) {
+        // For server-side, refresh current page
+        const currentPage = gridRef.current.api.paginationGetCurrentPage();
+        const dataSource = createDataSource(currentPageSizeRef.current);
+        
+        await new Promise((resolve, reject) => {
+          dataSource.getRows({
+            startRow: currentPage * currentPageSizeRef.current,
+            successCallback: (rows, totalRows) => {
+              gridRef.current.api.setRowData(rows);
+              totalRowsRef.current = totalRows;
+              setIsDataLoaded(true);
+              onDataLoaded(rows);
+              resolve();
+            },
+            failCallback: reject,
+          });
+        });
+      } else {
+        // For client-side, fetch all data
+        const response = await axios.get(apiUrl, {
+          params: fetchDataParams,
+          ...axiosConfig
+        });
+        
+        const newData = response.data.content || response.data;
+        gridRef.current.api.setRowData(newData);
+        totalRowsRef.current = newData.length;
+        setIsDataLoaded(true);
+        onDataLoaded(newData);
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [serverSide, apiUrl, fetchDataParams, axiosConfig, loading, handleError, onDataLoaded, createDataSource]);
+
+  // Setup auto-refresh
+  useEffect(() => {
+    if (autoRefreshInterval > 0) {
+      autoRefreshIntervalRef.current = setInterval(refreshData, autoRefreshInterval);
+    }
+    
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+      }
+    };
+  }, [autoRefreshInterval, refreshData]);
+
+  // Rest of the component remains the same until the return statement
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-gray-500">
+          {loading ? 'Loading...' : `Total rows: ${totalRowsRef.current}`}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={refreshData}
+            disabled={loading}
+            className={`px-4 py-2 rounded transition-colors ${
+              loading ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 text-white'
+            }`}
+          >
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+          {enableExport && (
+            <button
+              onClick={exportToCSV}
+              disabled={loading || !isDataLoaded}
+              className={`px-4 py-2 rounded transition-colors ${
+                loading || !isDataLoaded ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+            >
+              Export to CSV
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className={`${gridTheme} relative`} style={{ height: gridHeight, width: gridWidth }}>
+        <AgGridReact
+          ref={gridRef}
+          columnDefs={processedColumnDefs}
+          rowModelType={serverSide ? "infinite" : "clientSide"}
+          onGridReady={handleGridReady}
+          onPaginationChanged={onPaginationChanged}
+          cacheBlockSize={currentPageSizeRef.current}
+          pagination
+          paginationPageSize={currentPageSizeRef.current}
+          defaultColDef={mergedDefaultColDef}
+          enableCellTextSelection
+          copyHeadersToClipboard
+          suppressAggFuncInHeader
+          loadingOverlayComponent={LoadingOverlay}
+          noRowsOverlayComponent={NoRowsOverlay}
+          {...customGridOptions}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default GenericTable12;
+
+
+const ParentComponent = () => {
+  const tableRef = useRef();
+
+  const handleSomeEvent = () => {
+    // Refresh the table data
+    tableRef.current?.refreshData();
+  };
+
+  return (
+    <div>
+      <button onClick={handleSomeEvent}>
+        Refresh Table Data
+      </button>
+      
+      <GenericTable12
+        ref={tableRef}
+        apiUrl="/api/data"
+        serverSide={true}
+        // ... other props
+      />
+    </div>
+  );
+};
