@@ -237,3 +237,183 @@ const ParentComponent = () => {
     </div>
   );
 };
+import React, { useState, useCallback, useRef, useMemo, forwardRef, useImperativeHandle, useEffect } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
+import axios from 'axios';
+
+// Note the use of forwardRef here
+const GenericTable13 = forwardRef((props, ref) => {
+  const {
+    columnDefs,
+    rowData = [],
+    paginationPageSize = 20,
+    serverSide = false,
+    apiUrl = '',
+    fetchDataParams = {},
+    onGridReady = () => {},
+    onError = () => {},
+    gridTheme = 'ag-theme-alpine',
+    gridHeight = '500px',
+    gridWidth = '100%',
+    customLoadingOverlay,
+    axiosConfig = {},
+    defaultColDef = {},
+    enableExport = false,
+    noRowsMessage = 'No rows to show',
+    loadingMessage = 'Loading data...',
+    customGridOptions = {},
+    onDataLoaded = () => {},
+  } = props;
+
+  const gridRef = useRef(null);
+  const totalRowsRef = useRef(0);
+  const currentPageSizeRef = useRef(paginationPageSize);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  // Handle API errors
+  const handleError = useCallback((err) => {
+    const errorMessage = err?.response?.data?.message || err.message || 'An error occurred';
+    setError({ message: errorMessage, timestamp: new Date() });
+    onError(err);
+    setLoading(false);
+  }, [onError]);
+
+  // Create data source
+  const createDataSource = useCallback((pageSize) => {
+    return {
+      getRows: async (params) => {
+        if (!apiUrl) {
+          params.failCallback();
+          return;
+        }
+
+        setLoading(true);
+        setIsDataLoaded(false);
+
+        try {
+          const response = await axios.get(apiUrl, {
+            params: {
+              page: params.startRow / pageSize,
+              size: pageSize,
+              sort: params.sortModel?.[0]?.sort,
+              sortField: params.sortModel?.[0]?.colId,
+              ...fetchDataParams
+            },
+            ...axiosConfig
+          });
+
+          const { content, totalElements } = response.data;
+          totalRowsRef.current = totalElements;
+
+          if (Array.isArray(content)) {
+            setIsDataLoaded(true);
+            params.successCallback(content, totalElements);
+            onDataLoaded(content);
+          } else {
+            throw new Error('Invalid data format received from server');
+          }
+        } catch (err) {
+          handleError(err);
+          params.failCallback();
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+  }, [apiUrl, fetchDataParams, axiosConfig, handleError, onDataLoaded]);
+
+  // Refresh data function
+  const refreshData = useCallback(async () => {
+    if (!gridRef.current?.api || loading) return;
+
+    setLoading(true);
+    
+    try {
+      if (serverSide) {
+        const currentPage = gridRef.current.api.paginationGetCurrentPage();
+        const dataSource = createDataSource(currentPageSizeRef.current);
+        
+        await new Promise((resolve, reject) => {
+          dataSource.getRows({
+            startRow: currentPage * currentPageSizeRef.current,
+            successCallback: (rows, totalRows) => {
+              gridRef.current.api.setRowData(rows);
+              totalRowsRef.current = totalRows;
+              setIsDataLoaded(true);
+              onDataLoaded(rows);
+              resolve();
+            },
+            failCallback: reject,
+          });
+        });
+      } else {
+        const response = await axios.get(apiUrl, {
+          params: fetchDataParams,
+          ...axiosConfig
+        });
+        
+        const newData = response.data.content || response.data;
+        gridRef.current.api.setRowData(newData);
+        totalRowsRef.current = newData.length;
+        setIsDataLoaded(true);
+        onDataLoaded(newData);
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [serverSide, apiUrl, fetchDataParams, axiosConfig, loading, handleError, onDataLoaded, createDataSource]);
+
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    refreshData,
+    getGridApi: () => gridRef.current?.api,
+    isLoading: () => loading
+  }), [refreshData, loading]);
+
+  // Handle grid ready
+  const handleGridReady = useCallback((params) => {
+    if (serverSide) {
+      params.api.setGridOption('datasource', createDataSource(currentPageSizeRef.current));
+    }
+    onGridReady(params);
+  }, [serverSide, createDataSource, onGridReady]);
+
+  // Default column definitions
+  const defaultColDefMemo = useMemo(() => ({
+    sortable: true,
+    filter: true,
+    resizable: true,
+    ...defaultColDef
+  }), [defaultColDef]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className={`${gridTheme}`} style={{ height: gridHeight, width: gridWidth }}>
+        <AgGridReact
+          ref={gridRef}
+          columnDefs={columnDefs}
+          defaultColDef={defaultColDefMemo}
+          rowModelType={serverSide ? "infinite" : "clientSide"}
+          pagination={true}
+          paginationPageSize={paginationPageSize}
+          onGridReady={handleGridReady}
+          rowData={!serverSide ? rowData : undefined}
+          cacheBlockSize={paginationPageSize}
+          {...customGridOptions}
+        />
+      </div>
+    </div>
+  );
+});
+
+// Add display name for better debugging
+GenericTable13.displayName = 'GenericTable13';
+
+export default GenericTable13;
+
