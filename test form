@@ -909,3 +909,30 @@ const handleSomeEvent = async () => {
   }
 };
 
+
+import React, { useEffect } from 'react';
+
+const IframeComponent = () => {
+  useEffect(() => {
+    const iframe = document.querySelector('iframe');
+    
+    iframe.onload = () => {
+      try {
+        const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+        const logoElement = iframeDocument.querySelector('.css-wg10xt');
+        if (logoElement) {
+          logoElement.style.display = 'none';
+        }
+      } catch (error) {
+        console.log('Cannot access iframe content due to Same-Origin Policy');
+      }
+    };
+  }, []);
+
+  return (
+    <iframe src="http://34.116.138.85" />
+  );
+};
+
+export default IframeComponent;
+
