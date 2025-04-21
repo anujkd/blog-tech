@@ -1,364 +1,174 @@
-// Mapping from Excel column names (display) to internal column names
-const columnMapping = {
-  "First Name": "firstName",
-  "Last Name": "lastName",
-  "Gender": "Gender",
-  "Country": "CountryName",
-  "Age": "Age",
-  "Date": "Date",
-  "Id": "Id"
+root/
+├── public/
+│   └── env.js          # <- runtime env file (will be replaced dynamically)
+├── src/
+│   ├── config/
+│   │   └── env.js      # <- env loader (supports both vite dev and runtime)
+│   ├── context/
+│   │   └── EnvContext.jsx # <- React context for env (optional but clean)
+│   ├── api/
+│   │   └── apiClient.js   # <- Axios client using dynamic base URL
+│   ├── App.jsx
+│   ├── main.jsx
+├── .env
+├── .env.production
+├── vite.config.js
+├── package.json
+├── Dockerfile
+└── nginx.conf
+
+
+// public/env.js
+
+window._env_ = {
+  REACT_APP_API_URL: "https://api.production.com",
+  REACT_APP_AUTH_URL: "https://auth.production.com",
+  CONFIG_VERSION: "2025-04-21-01",
 };
 
-const mapColumnsToInternal = (data) => {
-  return data.map(row => {
-    const mappedRow = {};
-    Object.keys(row).forEach(excelColumn => {
-      // Check if there's a mapping for the column
-      const internalColumn = columnMapping[excelColumn];
-      if (internalColumn) {
-        mappedRow[internalColumn] = row[excelColumn]; // Replace with internal column name
-      } else {
-        mappedRow[excelColumn] = row[excelColumn]; // Keep original if no mapping exists
-      }
-    });
-    return mappedRow;
-  });
+
+// src/config/env.js
+
+const getEnvVar = (key, fallback = undefined) => {
+  if (typeof window !== "undefined" && window._env_ && window._env_[key]) {
+    return window._env_[key];
+  }
+  if (import.meta.env && import.meta.env[key]) {
+    return import.meta.env[key];
+  }
+  return fallback;
 };
 
-// Usage of the mapColumnsToInternal function
-const parseExcelFile = (uploadedFile) => {
-  const reader = new FileReader();
-
-  reader.onload = (e) => {
-    const data = e.target.result;
-    const workbook = XLSX.read(data, { type: 'array' }); // Handle ArrayBuffer
-    const sheetName = workbook.SheetNames[0]; // First sheet
-    const sheet = workbook.Sheets[sheetName];
-
-    // Parse the rows into JSON
-    const jsonData = XLSX.utils.sheet_to_json(sheet);
-
-    if (jsonData.length === 0) {
-      setFileError('The file is empty or invalid.');
-      return;
-    }
-
-    // Map columns to internal names
-    const mappedData = mapColumnsToInternal(jsonData);
-    setFileData(mappedData); // Set the data with internal column names
-
-    // Set the column definitions based on internal names
-    const columns = Object.keys(mappedData[0]).map((key) => ({
-      headerName: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize header
-      field: key,
-      sortable: true,
-      filter: true,
-    }));
-    setColumnDefs(columns);
-
-    // Proceed to next step
-    setStep(2);
-  };
-
-  // Read the file as ArrayBuffer
-  reader.readAsArrayBuffer(uploadedFile);
+export const ENV = {
+  API_URL: getEnvVar('REACT_APP_API_URL'),
+  AUTH_URL: getEnvVar('REACT_APP_AUTH_URL'),
+  CONFIG_VERSION: getEnvVar('CONFIG_VERSION', 'unknown'),
 };
 
-const mapColumnsToInternal = (data) => {
-  return data.map(row => {
-    const mappedRow = {};
-    Object.keys(row).forEach(excelColumn => {
-      // Check if there's a mapping for the column
-      const internalColumn = columnMapping[excelColumn];
-      if (internalColumn) {
-        mappedRow[internalColumn] = row[excelColumn]; // Replace with internal column name
-      }
-    });
-    return mappedRow; // Return row with only internal columns
-  });
-};
+export default ENV;
 
-const { getRootProps, getInputProps } = useDropzone({
-  onDrop: handleDrop,
-  accept: {
-    'application/vnd.ms-excel': ['.xls'],
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-    'text/csv': ['.csv']
-  },
+
+
+// src/api/apiClient.js
+
+import axios from 'axios';
+import { ENV } from '../config/env';
+
+const apiClient = axios.create({
+  baseURL: ENV.API_URL,
+  timeout: 10000,
 });
 
+export default apiClient;
 
 
 
 
+// src/context/EnvContext.jsx
 
-// ParentComponent.js
-import React, { useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux'; // Import hooks
-import { setFileData, addFileData } from './store/fileDataSlice'; // Import actions
-import { Button, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, Stepper, Step, StepLabel, Typography } from '@mui/material';
-import DialogComponent from './DialogComponent';
-import { useDropzone } from 'react-dropzone';
-import { CheckCircle, CloudUpload, Download } from '@mui/icons-material';
-import * as XLSX from 'xlsx'; // Import xlsx for parsing Excel files
-import GenericTable2 from './GenericTable2'; // Assuming you have this component
+import { createContext, useContext } from 'react';
+import { ENV } from '../config/env';
 
-const ParentComponent = () => {
-  const dispatch = useDispatch(); // Initialize the dispatch hook
-  const fileData = useSelector((state) => state.fileData.data); // Get file data from Redux
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedEntity, setSelectedEntity] = useState('single'); // 'single' or 'bulk'
-  const [step, setStep] = useState(0); // For stepper (Upload, Validate, Save)
-  const [file, setFile] = useState(null); // For file storage
-  const [fileError, setFileError] = useState(null); // For handling file errors
-  const [columnDefs, setColumnDefs] = useState([]); // Column definitions for Ag-Grid
+const EnvContext = createContext(ENV);
 
-  // Open dialog
-  const openDialog = () => {
-    setDialogOpen(true);
-  };
+export const useEnv = () => useContext(EnvContext);
 
-  // Close dialog
-  const closeDialog = () => {
-    setDialogOpen(false);
-  };
-
-  // Handle radio button change for entity type selection
-  const handleRadioChange = (event) => {
-    setSelectedEntity(event.target.value);
-    setStep(0); // Reset the stepper when toggling between radio buttons
-    setFile(null); // Reset file when switching
-    setFileError(null); // Reset file error
-  };
-
-  // Handle Add (Save) action
-  const handleAdd = () => {
-    console.log('Data saved');
-    setStep(2);
-    closeDialog();
-  };
-
-  // Handle re-upload action
-  const handleReupload = () => {
-    setFile(null); // Reset file
-    setStep(0); // Reset stepper to "Upload"
-    setFileError(null); // Reset any error
-    setColumnDefs([]); // Reset column definitions
-  };
-
-  // Handle file drop (upload)
-  const handleDrop = (acceptedFiles) => {
-    const uploadedFile = acceptedFiles[0];
-    setFile(uploadedFile);
-    setStep(1); // Move to validation step immediately after file upload
-    setFileError(null); // Clear any previous errors
-    parseExcelFile(uploadedFile); // Parse the Excel file
-  };
-
-  // Parse Excel file and update the Redux store
-  const parseExcelFile = (uploadedFile) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const data = e.target.result;
-      const workbook = XLSX.read(data, { type: 'binary' });
-      const sheetName = workbook.SheetNames[0]; // Assuming we want the first sheet
-      const sheet = workbook.Sheets[sheetName];
-
-      // Parse the rows to JSON
-      const jsonData = XLSX.utils.sheet_to_json(sheet);
-      if (jsonData.length === 0) {
-        setFileError('The file is empty or invalid.');
-        return;
-      }
-
-      // Set the columnDefs based on the keys in the first row
-      const columns = Object.keys(jsonData[0]).map((key) => ({
-        headerName: key,
-        field: key,
-        sortable: true,
-        filter: true,
-      }));
-      setColumnDefs(columns);
-
-      // Dispatch action to update Redux store with the new file data
-      dispatch(addFileData(jsonData)); // Add new data to existing data in Redux store
-      setStep(2); // Proceed to next step (Save)
-    };
-    reader.readAsArrayBuffer(uploadedFile);
-  };
-
-  // File dropzone setup
-  const { getRootProps, getInputProps } = useDropzone({
-    onDrop: handleDrop,
-    accept: {
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'text/csv': ['.csv']
-    }
-  });
-
-  const steps = ['Upload File', 'Validate', 'Save'];
-
+export const EnvProvider = ({ children }) => {
   return (
-    <div>
-      <Button variant="outlined" color="primary" onClick={openDialog}>
-        Open Dialog
-      </Button>
-
-      <DialogComponent
-        open={dialogOpen}
-        onClose={closeDialog}
-        title="Dialog Title"
-        content={
-          <div>
-            <FormControl component="fieldset">
-              <FormLabel component="legend">Select Entity Type</FormLabel>
-              <RadioGroup value={selectedEntity} onChange={handleRadioChange}>
-                <FormControlLabel value="single" control={<Radio />} label="Single Entity" />
-                <FormControlLabel value="bulk" control={<Radio />} label="Bulk Entity" />
-              </RadioGroup>
-            </FormControl>
-
-            {selectedEntity === 'single' ? (
-              <div>
-                <Typography variant="body1" component="div">Single Entity selected</Typography>
-              </div>
-            ) : (
-              <div>
-                {/* Bulk Entity section */}
-                <Stepper activeStep={step} alternativeLabel>
-                  {steps.map((label, index) => (
-                    <Step key={index}>
-                      <StepLabel>{label}</StepLabel>
-                    </Step>
-                  ))}
-                </Stepper>
-
-                {step === 0 && (
-                  <div>
-                    <Typography variant="body2" style={{ marginTop: 10 }} component="div">
-                      Upload file with entities to be added to the producer
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      style={{ marginTop: 10 }}
-                      startIcon={<Download />}
-                    >
-                      Download Template
-                    </Button>
-
-                    {!file ? (
-                      <div
-                        {...getRootProps()}
-                        style={{
-                          border: '2px dashed #ccc',
-                          padding: '20px',
-                          marginTop: '20px',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <input {...getInputProps()} />
-                        <Typography variant="body2" component="div">
-                          <CloudUpload color="primary" />
-                          <div>Drag & Drop or Click to Upload</div>
-                        </Typography>
-                      </div>
-                    ) : (
-                      <div>
-                        <Typography variant="body2" style={{ marginTop: 10 }} component="div">
-                          File Selected: {file.name}
-                        </Typography>
-                        <Button
-                          variant="outlined"
-                          color="primary"
-                          style={{ marginTop: 10 }}
-                          onClick={() => setStep(1)}
-                        >
-                          File Selected
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {step === 1 && (
-                  <div>
-                    <Typography variant="body2" style={{ marginTop: 10 }} component="div">
-                      Validating file...
-                    </Typography>
-                    {fileError && (
-                      <Typography variant="body2" color="error" style={{ marginTop: 10 }} component="div">
-                        {fileError}
-                      </Typography>
-                    )}
-                    {!fileError && (
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        style={{ marginTop: 10 }}
-                        onClick={() => setStep(2)}
-                      >
-                        Validate
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {step === 2 && (
-                  <div>
-                    <Typography variant="body2" style={{ marginTop: 10 }} component="div">
-                      File successfully validated. Click Save to proceed.
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      style={{ marginTop: 10 }}
-                      onClick={handleAdd}
-                    >
-                      Save
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        }
-        footerActions={{
-          cancelText: 'Cancel',
-          addText: file ? 'Reupload' : 'Add Item',
-          onCancel: closeDialog,
-          onAdd: file ? handleReupload : handleAdd,
-        }}
-        size="md"
-        disableEscapeKeyDown={false}
-        disableBackdropClick={true}
-      />
-
-      {/* Render the table only after the user clicks Save */}
-      {fileData.length > 0 && (
-        <div style={{ marginTop: '20px' }}>
-          <GenericTable2
-            columnDefs={columnDefs}
-            rowData={fileData} // Pass the file data from Redux to the table
-            paginationPageSize={10}
-          />
-        </div>
-      )}
-    </div>
+    <EnvContext.Provider value={ENV}>
+      {children}
+    </EnvContext.Provider>
   );
 };
 
-export default ParentComponent;
 
 
-const parseExcelFile = (uploadedFile) => {
-  const fileExtension = uploadedFile.name.split('.').pop().toLowerCase();
-  if (!['xls', 'xlsx', 'csv'].includes(fileExtension)) {
-    setFileError('Invalid file type. Please upload .xls, .xlsx, or .csv files.');
-    return;
+
+// src/main.jsx
+
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+
+async function bootstrapApp() {
+  if (import.meta.env.PROD) {
+    await loadEnvScript();
   }
-  // Proceed with parsing if the file extension is valid
-  const reader = new FileReader();
-  // ... rest of your parsing logic
-};
+  createRoot(document.getElementById('root')).render(<App />);
+}
+
+function loadEnvScript() {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = '/env.js?v=' + Date.now(); // bust cache
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+bootstrapApp();
+
+
+import { EnvProvider } from './context/EnvContext';
+
+function App() {
+  return (
+    <EnvProvider>
+      <div>Hello Dynamic Environment Setup!</div>
+    </EnvProvider>
+  );
+}
+
+export default App;
+
+
+# Dockerfile
+
+FROM node:18-alpine as builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY public/env.js /usr/share/nginx/html/env.js
+
+
+# nginx.conf
+
+server {
+  listen 80;
+  server_name _;
+
+  location / {
+    root   /usr/share/nginx/html;
+    index  index.html;
+    try_files $uri $uri/ /index.html;
+  }
+
+  location /env.js {
+    root /usr/share/nginx/html;
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
+  }
+}
+
+🧠 Kubernetes ConfigMap or Docker volume for env.js (dynamic injection)
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-app-env
+data:
+  env.js: |
+    window._env_ = {
+      REACT_APP_API_URL: "https://api.staging.com",
+      REACT_APP_AUTH_URL: "https://auth.staging.com",
+      CONFIG_VERSION: "staging-2025",
+    };
+
+
+
