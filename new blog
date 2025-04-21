@@ -172,3 +172,119 @@ data:
 
 
 
+
+
+------------------------------------
+
+
+
+# Step 1: Use the base node image to build your app
+FROM node:18-alpine as builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Step 2: Use nginx for serving the app
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Step 3: Add the dynamic env.js generation during container start
+COPY ./public/env.js.template /usr/share/nginx/html/env.js.template
+
+# Inject the environment variables into env.js at container start
+CMD envsubst < /usr/share/nginx/html/env.js.template > /usr/share/nginx/html/env.js && nginx -g "daemon off;"
+
+
+
+window._env_ = {
+  REACT_APP_API_URL: "${REACT_APP_API_URL}",
+  REACT_APP_AUTH_URL: "${REACT_APP_AUTH_URL}",
+  CONFIG_VERSION: "${CONFIG_VERSION}",
+};
+
+
+
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+
+async function bootstrapApp() {
+  if (import.meta.env.PROD) {
+    await loadEnvScript();
+  }
+  createRoot(document.getElementById('root')).render(<App />);
+}
+
+function loadEnvScript() {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = '/env.js?v=' + Date.now(); // Cache busting
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+bootstrapApp();
+
+
+
+const getEnvVar = (key, fallback = undefined) => {
+  if (typeof window !== "undefined" && window._env_ && window._env_[key]) {
+    return window._env_[key];
+  }
+  if (import.meta.env && import.meta.env[key]) {
+    return import.meta.env[key];
+  }
+  return fallback;
+};
+
+export const ENV = {
+  API_URL: getEnvVar('REACT_APP_API_URL'),
+  AUTH_URL: getEnvVar('REACT_APP_AUTH_URL'),
+  CONFIG_VERSION: getEnvVar('CONFIG_VERSION', 'unknown'),
+};
+
+export default ENV;
+
+
+import axios from 'axios';
+import { ENV } from '../config/env';
+
+const apiClient = axios.create({
+  baseURL: ENV.API_URL,
+  timeout: 10000,
+});
+
+export default apiClient;
+
+
+server {
+  listen 80;
+  server_name _;
+
+  location / {
+    root   /usr/share/nginx/html;
+    index  index.html;
+    try_files $uri $uri/ /index.html;
+  }
+
+  location /env.js {
+    root /usr/share/nginx/html;
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
+  }
+}
+
+
+docker build -t react-vite-env .
+
+
+docker run -p 80:80 -e REACT_APP_API_URL=https://api.example.com -e REACT_APP_AUTH_URL=https://auth.example.com react-vite-env
+
+
+
+
+
