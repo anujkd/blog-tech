@@ -283,7 +283,120 @@ docker build -t react-vite-env .
 
 
 docker run -p 80:80 -e REACT_APP_API_URL=https://api.example.com -e REACT_APP_AUTH_URL=https://auth.example.com react-vite-env
+----------
+-----
 
+# Step 1: Build stage
+FROM node:18-alpine as builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Step 2: Production stage
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html/rui  # 👈 put under /rui
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY ./public/env.js.template /usr/share/nginx/html/rui/env.js.template
+
+# Step 3: Inject env vars at start
+CMD envsubst < /usr/share/nginx/html/rui/env.js.template > /usr/share/nginx/html/rui/env.js && nginx -g "daemon off;"
+
+
+server {
+  listen 80;
+  server_name _;
+
+  location /rui/ {
+    root   /usr/share/nginx/html;
+    index  index.html;
+    try_files $uri $uri/ /rui/index.html;
+  }
+
+  location /rui/env.js {
+    root /usr/share/nginx/html;
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
+  }
+}
+
+
+
+---------------------
+
+docker build -t react-vite-env .
+docker run -d --name my-app-container \
+  -p 9001:80 \
+  -e REACT_APP_API_URL="https://api.staging.example.com" \
+  -e REACT_APP_AUTH_URL="https://auth.staging.example.com" \
+  -e CONFIG_VERSION="staging-2025" \
+  react-vite-env
+
+----------------------
+Step 1: Create a ConfigMap with env.js Template
+✅ Create a ConfigMap like this:
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rui-env-configmap
+data:
+  env.js.template: |
+    window._env_ = {
+      REACT_APP_API_URL: "${REACT_APP_API_URL}",
+      REACT_APP_AUTH_URL: "${REACT_APP_AUTH_URL}",
+      CONFIG_VERSION: "${CONFIG_VERSION}",
+    };
+
+
+(Here env.js.template is created dynamically at runtime inside the pod)
+
+Step 2: Update your Kubernetes Deployment
+In your Pod spec.template.spec:
+
+✅ 1. Mount the ConfigMap inside the container
+✅ 2. Set Environment Variables dynamically
+✅ 3. Inject envsubst command before starting nginx
+
+Here’s a sample deployment snippet:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rui-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rui-app
+  template:
+    metadata:
+      labels:
+        app: rui-app
+    spec:
+      containers:
+      - name: rui-container
+        image: your-docker-image:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: REACT_APP_API_URL
+          value: "https://api.production.com"
+        - name: REACT_APP_AUTH_URL
+          value: "https://auth.production.com"
+        - name: CONFIG_VERSION
+          value: "prod-2025"
+        volumeMounts:
+        - name: env-config-volume
+          mountPath: /usr/share/nginx/html/env.js.template
+          subPath: env.js.template
+        command: ["/bin/sh", "-c"]
+        args:
+          - envsubst < /usr/share/nginx/html/env.js.template > /usr/share/nginx/html/rui/env.js && nginx -g 'daemon off;'
+      volumes:
+      - name: env-config-volume
+        configMap:
+          name: rui-env-configmap
 
 
 
