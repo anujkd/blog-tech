@@ -42,11 +42,17 @@ const refreshToken = async () => {
       refreshToken,
     });
 
-    const { accessToken, expiresIn } = response.data;
+    // Get token and expiration from response
+    const { accessToken, tokenExpirationTime } = response.data;
     
     // Save the new token and its expiration time
     localStorage.setItem('accessToken', accessToken);
-    const expirationTime = new Date().getTime() + expiresIn * 1000;
+    
+    // Handle expiration time format (convert to milliseconds if it's in seconds)
+    const expirationTime = tokenExpirationTime > 10000000000 
+      ? tokenExpirationTime  // Already in milliseconds
+      : tokenExpirationTime * 1000;  // Convert seconds to milliseconds
+    
     localStorage.setItem('tokenExpiration', expirationTime);
     
     return accessToken;
