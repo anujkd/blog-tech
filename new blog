@@ -1,403 +1,163 @@
-root/
-├── public/
-│   └── env.js          # <- runtime env file (will be replaced dynamically)
-├── src/
-│   ├── config/
-│   │   └── env.js      # <- env loader (supports both vite dev and runtime)
-│   ├── context/
-│   │   └── EnvContext.jsx # <- React context for env (optional but clean)
-│   ├── api/
-│   │   └── apiClient.js   # <- Axios client using dynamic base URL
-│   ├── App.jsx
-│   ├── main.jsx
-├── .env
-├── .env.production
-├── vite.config.js
-├── package.json
-├── Dockerfile
-└── nginx.conf
-
-
-// public/env.js
-
-window._env_ = {
-  REACT_APP_API_URL: "https://api.production.com",
-  REACT_APP_AUTH_URL: "https://auth.production.com",
-  CONFIG_VERSION: "2025-04-21-01",
-};
-
-
-// src/config/env.js
-
-const getEnvVar = (key, fallback = undefined) => {
-  if (typeof window !== "undefined" && window._env_ && window._env_[key]) {
-    return window._env_[key];
-  }
-  if (import.meta.env && import.meta.env[key]) {
-    return import.meta.env[key];
-  }
-  return fallback;
-};
-
-export const ENV = {
-  API_URL: getEnvVar('REACT_APP_API_URL'),
-  AUTH_URL: getEnvVar('REACT_APP_AUTH_URL'),
-  CONFIG_VERSION: getEnvVar('CONFIG_VERSION', 'unknown'),
-};
-
-export default ENV;
-
-
-
-// src/api/apiClient.js
+// src/services/authInterceptor.js
 
 import axios from 'axios';
-import { ENV } from '../config/env';
 
-const apiClient = axios.create({
-  baseURL: ENV.API_URL,
-  timeout: 10000,
+const API_URL = process.env.REACT_APP_API_URL || 'https://api.example.com';
+
+// Create axios instance
+const axiosInstance = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-export default apiClient;
+// Variables to track token refresh state
+let isRefreshing = false;
+let refreshSubscribers = [];
 
-
-
-
-// src/context/EnvContext.jsx
-
-import { createContext, useContext } from 'react';
-import { ENV } from '../config/env';
-
-const EnvContext = createContext(ENV);
-
-export const useEnv = () => useContext(EnvContext);
-
-export const EnvProvider = ({ children }) => {
-  return (
-    <EnvContext.Provider value={ENV}>
-      {children}
-    </EnvContext.Provider>
-  );
+// Function to add callbacks to the queue
+const subscribeToTokenRefresh = (callback) => {
+  refreshSubscribers.push(callback);
 };
 
-
-
-
-// src/main.jsx
-
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App';
-
-async function bootstrapApp() {
-  if (import.meta.env.PROD) {
-    await loadEnvScript();
-  }
-  createRoot(document.getElementById('root')).render(<App />);
-}
-
-function loadEnvScript() {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = '/env.js?v=' + Date.now(); // bust cache
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-}
-
-bootstrapApp();
-
-
-import { EnvProvider } from './context/EnvContext';
-
-function App() {
-  return (
-    <EnvProvider>
-      <div>Hello Dynamic Environment Setup!</div>
-    </EnvProvider>
-  );
-}
-
-export default App;
-
-
-# Dockerfile
-
-FROM node:18-alpine as builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY public/env.js /usr/share/nginx/html/env.js
-
-
-# nginx.conf
-
-server {
-  listen 80;
-  server_name _;
-
-  location / {
-    root   /usr/share/nginx/html;
-    index  index.html;
-    try_files $uri $uri/ /index.html;
-  }
-
-  location /env.js {
-    root /usr/share/nginx/html;
-    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
-  }
-}
-
-🧠 Kubernetes ConfigMap or Docker volume for env.js (dynamic injection)
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: my-app-env
-data:
-  env.js: |
-    window._env_ = {
-      REACT_APP_API_URL: "https://api.staging.com",
-      REACT_APP_AUTH_URL: "https://auth.staging.com",
-      CONFIG_VERSION: "staging-2025",
-    };
-
-
-
-
-
-------------------------------------
-
-
-
-# Step 1: Use the base node image to build your app
-FROM node:18-alpine as builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-
-# Step 2: Use nginx for serving the app
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# Step 3: Add the dynamic env.js generation during container start
-COPY ./public/env.js.template /usr/share/nginx/html/env.js.template
-
-# Inject the environment variables into env.js at container start
-CMD envsubst < /usr/share/nginx/html/env.js.template > /usr/share/nginx/html/env.js && nginx -g "daemon off;"
-
-
-
-window._env_ = {
-  REACT_APP_API_URL: "${REACT_APP_API_URL}",
-  REACT_APP_AUTH_URL: "${REACT_APP_AUTH_URL}",
-  CONFIG_VERSION: "${CONFIG_VERSION}",
+// Function to call all the callbacks with the new token
+const onTokenRefreshed = (newToken) => {
+  refreshSubscribers.forEach((callback) => callback(newToken));
+  refreshSubscribers = [];
 };
 
+// Function to handle token refresh
+const refreshToken = async () => {
+  try {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      // No refresh token available, user needs to log in
+      localStorage.clear();
+      window.location.href = '/login';
+      return null;
+    }
 
+    const response = await axios.post(`${API_URL}/auth/refresh-token`, {
+      refreshToken,
+    });
 
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App';
-
-async function bootstrapApp() {
-  if (import.meta.env.PROD) {
-    await loadEnvScript();
+    const { accessToken, expiresIn } = response.data;
+    
+    // Save the new token and its expiration time
+    localStorage.setItem('accessToken', accessToken);
+    const expirationTime = new Date().getTime() + expiresIn * 1000;
+    localStorage.setItem('tokenExpiration', expirationTime);
+    
+    return accessToken;
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    // Refresh token failed, redirect to login
+    localStorage.clear();
+    window.location.href = '/login';
+    return null;
   }
-  createRoot(document.getElementById('root')).render(<App />);
-}
-
-function loadEnvScript() {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = '/env.js?v=' + Date.now(); // Cache busting
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-}
-
-bootstrapApp();
-
-
-
-const getEnvVar = (key, fallback = undefined) => {
-  if (typeof window !== "undefined" && window._env_ && window._env_[key]) {
-    return window._env_[key];
-  }
-  if (import.meta.env && import.meta.env[key]) {
-    return import.meta.env[key];
-  }
-  return fallback;
 };
 
-export const ENV = {
-  API_URL: getEnvVar('REACT_APP_API_URL'),
-  AUTH_URL: getEnvVar('REACT_APP_AUTH_URL'),
-  CONFIG_VERSION: getEnvVar('CONFIG_VERSION', 'unknown'),
+// Function to check if token is expired
+const isTokenExpired = () => {
+  const expirationTime = localStorage.getItem('tokenExpiration');
+  if (!expirationTime) return true;
+  
+  // Add a buffer of 10 seconds to refresh the token slightly before it actually expires
+  return new Date().getTime() > (parseInt(expirationTime) - 10000);
 };
 
-export default ENV;
+// Request interceptor
+axiosInstance.interceptors.request.use(
+  async (config) => {
+    // Skip token for login or refresh token endpoints
+    if (config.url.includes('/auth/login') || config.url.includes('/auth/refresh-token')) {
+      return config;
+    }
 
-
-import axios from 'axios';
-import { ENV } from '../config/env';
-
-const apiClient = axios.create({
-  baseURL: ENV.API_URL,
-  timeout: 10000,
-});
-
-export default apiClient;
-
-
-server {
-  listen 80;
-  server_name _;
-
-  location / {
-    root   /usr/share/nginx/html;
-    index  index.html;
-    try_files $uri $uri/ /index.html;
+    // Check if token needs to be refreshed
+    if (isTokenExpired()) {
+      // If we're not already refreshing, start the refresh process
+      if (!isRefreshing) {
+        isRefreshing = true;
+        
+        const newToken = await refreshToken();
+        
+        isRefreshing = false;
+        
+        if (newToken) {
+          onTokenRefreshed(newToken);
+        }
+      }
+      
+      // Add this request to the queue to be executed after token refresh
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          subscribeToTokenRefresh((newToken) => {
+            config.headers.Authorization = `Bearer ${newToken}`;
+            resolve(config);
+          });
+        });
+      }
+    }
+    
+    // Add token to headers for authenticated requests
+    const accessToken = localStorage.getItem('accessToken');
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
+);
 
-  location /env.js {
-    root /usr/share/nginx/html;
-    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
+// Response interceptor to handle 401 Unauthorized errors
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // If the error is 401 and we haven't retried yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Wait for the token refresh to complete
+        return new Promise((resolve) => {
+          subscribeToTokenRefresh((newToken) => {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            originalRequest._retry = true;
+            resolve(axiosInstance(originalRequest));
+          });
+        });
+      } else {
+        // Start refreshing the token
+        originalRequest._retry = true;
+        isRefreshing = true;
+        
+        try {
+          const newToken = await refreshToken();
+          isRefreshing = false;
+          
+          if (newToken) {
+            // Update headers and notify subscribers
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            onTokenRefreshed(newToken);
+            
+            // Retry the original request with the new token
+            return axiosInstance(originalRequest);
+          }
+        } catch (refreshError) {
+          isRefreshing = false;
+          return Promise.reject(refreshError);
+        }
+      }
+    }
+    
+    return Promise.reject(error);
   }
-}
+);
 
-
-docker build -t react-vite-env .
-
-
-docker run -p 80:80 -e REACT_APP_API_URL=https://api.example.com -e REACT_APP_AUTH_URL=https://auth.example.com react-vite-env
-----------
------
-
-# Step 1: Build stage
-FROM node:18-alpine as builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-
-# Step 2: Production stage
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html/rui  # 👈 put under /rui
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY ./public/env.js.template /usr/share/nginx/html/rui/env.js.template
-
-# Step 3: Inject env vars at start
-CMD envsubst < /usr/share/nginx/html/rui/env.js.template > /usr/share/nginx/html/rui/env.js && nginx -g "daemon off;"
-
-
-server {
-  listen 80;
-  server_name _;
-
-  location /rui/ {
-    root   /usr/share/nginx/html;
-    index  index.html;
-    try_files $uri $uri/ /rui/index.html;
-  }
-
-  location /rui/env.js {
-    root /usr/share/nginx/html;
-    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
-  }
-}
-
-
-
----------------------
-
-docker build -t react-vite-env .
-docker run -d --name my-app-container \
-  -p 9001:80 \
-  -e REACT_APP_API_URL="https://api.staging.example.com" \
-  -e REACT_APP_AUTH_URL="https://auth.staging.example.com" \
-  -e CONFIG_VERSION="staging-2025" \
-  react-vite-env
-
-----------------------
-Step 1: Create a ConfigMap with env.js Template
-✅ Create a ConfigMap like this:
-
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: rui-env-configmap
-data:
-  env.js.template: |
-    window._env_ = {
-      REACT_APP_API_URL: "${REACT_APP_API_URL}",
-      REACT_APP_AUTH_URL: "${REACT_APP_AUTH_URL}",
-      CONFIG_VERSION: "${CONFIG_VERSION}",
-    };
-
-
-(Here env.js.template is created dynamically at runtime inside the pod)
-
-Step 2: Update your Kubernetes Deployment
-In your Pod spec.template.spec:
-
-✅ 1. Mount the ConfigMap inside the container
-✅ 2. Set Environment Variables dynamically
-✅ 3. Inject envsubst command before starting nginx
-
-Here’s a sample deployment snippet:
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: rui-app
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: rui-app
-  template:
-    metadata:
-      labels:
-        app: rui-app
-    spec:
-      containers:
-      - name: rui-container
-        image: your-docker-image:latest
-        ports:
-        - containerPort: 80
-        env:
-        - name: REACT_APP_API_URL
-          value: "https://api.production.com"
-        - name: REACT_APP_AUTH_URL
-          value: "https://auth.production.com"
-        - name: CONFIG_VERSION
-          value: "prod-2025"
-        volumeMounts:
-        - name: env-config-volume
-          mountPath: /usr/share/nginx/html/env.js.template
-          subPath: env.js.template
-        command: ["/bin/sh", "-c"]
-        args:
-          - envsubst < /usr/share/nginx/html/env.js.template > /usr/share/nginx/html/rui/env.js && nginx -g 'daemon off;'
-      volumes:
-      - name: env-config-volume
-        configMap:
-          name: rui-env-configmap
-
-
-
-
+export default axiosInstance;
