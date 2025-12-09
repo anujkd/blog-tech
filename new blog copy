@@ -1,457 +1,1283 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import PropTypes from 'prop-types';
-import { AgGridReact } from 'ag-grid-react';
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-alpine.css';
-import axios from 'axios';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+import { ChevronDown, ChevronRight, Menu, X, Edit2, Copy, RefreshCw, Trash2, Eye, Play, Pause, Upload, ChevronLeft, Send, Monitor, CheckCircle } from 'lucide-react';
 
-const GenericTable2 = ({
-  columnDefs = [],
-  rowData = [],
-  paginationPageSize = 20,
-  serverSide = false,
-  apiUrl = '',
-  fetchDataParams = {},
-  onGridReady = () => {},
-}) => {
-  const [gridApi, setGridApi] = useState(null);
-  const [gridColumnApi, setGridColumnApi] = useState(null);
+const AppContainer = styled.div`
+  display: flex;
+  height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: #f8f9fa;
+`;
 
-  // Server-side data fetching logic (if needed)
-  const fetchServerData = async (params) => {
-    if (!apiUrl) return;
-    try {
-      const response = await axios.get(apiUrl, {
-        params: {
-          page: params.start / params.end + 1,  // Page number for pagination
-          pageSize: params.end - params.start,  // Page size
-          ...fetchDataParams,
-          sortBy: params.sortModel.length > 0 ? params.sortModel[0].colId : '',
-          sortOrder: params.sortModel.length > 0 ? params.sortModel[0].sort : '',
-          filter: params.filterModel
-        }
-      });
-      const { data, totalCount } = response.data;  // Assuming API returns this structure
-      params.successCallback(data, totalCount);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    }
-  };
+const Header = styled.header`
+  position: fixed;
+  top: 0;
+  left: ${props => props.$sidebarOpen ? '280px' : '0'};
+  right: 0;
+  height: 64px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 100;
+  transition: left 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+`;
 
-  useEffect(() => {
-    if (serverSide && gridApi) {
-      gridApi.setDatasource({
-        getRows: (params) => fetchServerData(params),
-      });
-    }
-  }, [serverSide, gridApi]);
-
-  const onGridReadyHandler = (params) => {
-    setGridApi(params.api);
-    setGridColumnApi(params.columnApi);
-    onGridReady(params);
-  };
-
-  // New callback for handling clipboard operations
-  const onCellValueChanged = useCallback((params) => {
-    if (params.newValue !== params.oldValue) {
-      console.log(`Cell value changed from ${params.oldValue} to ${params.newValue}`);
-    }
-    // Here you can handle any logic for when a cell value changes, if needed for clipboard operations
-  }, []);
-
-  return (
-    <div className="ag-theme-alpine" style={{ height: '400px', width: '100%' }}>
-      <AgGridReact
-        onGridReady={onGridReadyHandler}
-        columnDefs={columnDefs}
-        rowData={rowData}
-        paginationPageSize={paginationPageSize}
-        pagination={true}
-        enableSorting={true}
-        enableFilter={true}
-        domLayout="autoHeight"
-        rowModelType={serverSide ? 'serverSide' : 'clientSide'}
-        cellSelection={true}
-        enableCellTextSelection={true}  // Enable text selection in cells
-        processCellForClipboard={useCallback(params => params.value, [])}  // Return raw value for clipboard
-        processHeaderForClipboard={useCallback(params => params.column.getColDef().headerName, [])}
-        processGroupHeaderForClipboard={useCallback(params => params.columnGroup.getColGroupDef().headerName, [])}
-        onCellValueChanged={onCellValueChanged}  // Added for potential clipboard operations
-      />
-    </div>
-  );
-};
-
-// Prop validation with PropTypes
-GenericTable2.propTypes = {
-  columnDefs: PropTypes.array.isRequired,
-  rowData: PropTypes.array.isRequired,
-  paginationPageSize: PropTypes.number,
-  serverSide: PropTypes.bool,
-  apiUrl: PropTypes.string,
-  fetchDataParams: PropTypes.object,
-  onGridReady: PropTypes.func,
-};
-
-export default GenericTable2;
-
-
-
-import React from 'react';
-
-function validateUniqueEntityNames(existingData, newData) {
-  // Merge both arrays into one
-  const allEntities = [...existingData, ...newData];
-
-  // Use an object to track names (case-insensitive)
-  const nameMap = {};
-
-  // Check for duplicates in the merged array
-  for (const entity of allEntities) {
-    const lowercaseName = entity.name.toLowerCase();
-    if (nameMap[lowercaseName]) {
-      return { error: `Duplicate entity name found: ${entity.name}` };
-    }
-    nameMap[lowercaseName] = true;
+const MenuButton = styled.button`
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  margin-right: 20px;
+  border-radius: 8px;
+  transition: background 0.2s;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
   }
+`;
 
-  // If we've made it here, all entity names are unique
-  return { error: null };
-}
+const Logo = styled.h1`
+  font-size: 24px;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+`;
+
+const Sidebar = styled.aside`
+  position: fixed;
+  left: ${props => props.$open ? '0' : '-280px'};
+  top: 64px;
+  width: 280px;
+  height: calc(100vh - 64px);
+  background: #2d3748;
+  color: white;
+  transition: left 0.3s ease;
+  overflow-y: auto;
+  z-index: 99;
+  box-shadow: 2px 0 12px rgba(0,0,0,0.1);
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #1a202c;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #4a5568;
+    border-radius: 3px;
+  }
+`;
+
+const MenuSection = styled.div`
+  margin: 8px 0;
+`;
+
+const MenuTitle = styled.div`
+  padding: 14px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s;
+  color: #e2e8f0;
+  font-size: 15px;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+  }
+`;
+
+const SubMenu = styled.div`
+  max-height: ${props => props.$open ? '500px' : '0'};
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  background: rgba(0, 0, 0, 0.2);
+`;
+
+const SubMenuItem = styled.div`
+  padding: 12px 20px 12px 40px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: #cbd5e0;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    padding-left: 44px;
+  }
+  
+  ${props => props.$active && `
+    background: rgba(102, 126, 234, 0.3);
+    color: white;
+    border-left: 3px solid #667eea;
+    font-weight: 500;
+  `}
+`;
+
+const MainContent = styled.main`
+  margin-left: ${props => props.$sidebarOpen ? '280px' : '0'};
+  margin-top: 64px;
+  padding: 32px;
+  width: 100%;
+  transition: margin-left 0.3s ease;
+  min-height: calc(100vh - 64px);
+`;
+
+const PageHeader = styled.div`
+  margin-bottom: 32px;
+`;
+
+const PageTitle = styled.h2`
+  font-size: 32px;
+  margin: 0 0 8px 0;
+  color: #1a202c;
+  font-weight: 700;
+`;
+
+const PageSubtitle = styled.p`
+  color: #718096;
+  margin: 0;
+  font-size: 16px;
+`;
+
+const ChatContainer = styled.div`
+  max-width: 1000px;
+  margin: 0 auto;
+`;
+
+const InputSection = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  margin-bottom: 24px;
+`;
+
+const TextArea = styled.textarea`
+  width: 100%;
+  min-height: 120px;
+  padding: 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 15px;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  
+  &:focus {
+    outline: none;
+    border-color: #667eea;
+  }
+  
+  &::placeholder {
+    color: #a0aec0;
+  }
+`;
+
+const SendButton = styled.button`
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 14px 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  transition: transform 0.2s, box-shadow 0.2s;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const Suggestions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+`;
+
+const SuggestionChip = styled.button`
+  background: white;
+  border: 2px solid #e2e8f0;
+  padding: 10px 20px;
+  border-radius: 24px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  color: #4a5568;
+  font-weight: 500;
+  
+  &:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+    transform: translateY(-2px);
+  }
+`;
+
+const ChatHistory = styled.div`
+  margin-top: 32px;
+`;
+
+const MessageRow = styled.div`
+  margin: 24px 0;
+  display: flex;
+  justify-content: ${props => props.$align === 'right' ? 'flex-end' : 'flex-start'};
+`;
+
+const MessageBubble = styled.div`
+  background: ${props => props.$type === 'user' 
+    ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' 
+    : 'white'};
+  color: ${props => props.$type === 'user' ? 'white' : '#2d3748'};
+  padding: 18px 22px;
+  border-radius: 16px;
+  max-width: 75%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  position: relative;
+  line-height: 1.6;
+`;
+
+const MessageActions = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+`;
+
+const IconButton = styled.button`
+  background: ${props => props.$user ? 'rgba(255,255,255,0.2)' : '#f7fafc'};
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+  color: ${props => props.$user ? 'white' : '#4a5568'};
+  
+  &:hover {
+    background: ${props => props.$user ? 'rgba(255,255,255,0.3)' : '#edf2f7'};
+    transform: scale(1.1);
+  }
+`;
+
+const ThinkingLoader = styled.div`
+  color: #718096;
+  font-style: italic;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  &::after {
+    content: '...';
+    animation: dots 1.5s infinite;
+  }
+  
+  @keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+  }
+`;
+
+const TableContainer = styled.div`
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  overflow: hidden;
+`;
+
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+`;
+
+const Th = styled.th`
+  background: #f7fafc;
+  color: #2d3748;
+  padding: 16px 20px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e2e8f0;
+`;
+
+const Td = styled.td`
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #4a5568;
+  font-size: 14px;
+`;
+
+const Tr = styled.tr`
+  transition: background 0.2s;
+  
+  &:hover {
+    background: #f7fafc;
+  }
+  
+  &:last-child td {
+    border-bottom: none;
+  }
+`;
+
+const TopBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+`;
+
+const Button = styled.button`
+  background: ${props => props.$variant === 'danger' ? '#f56565' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'};
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px ${props => props.$variant === 'danger' ? 'rgba(245, 101, 101, 0.4)' : 'rgba(102, 126, 234, 0.4)'};
+  }
+`;
+
+const ActionButtons = styled.div`
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+`;
+
+const SmallButton = styled.button`
+  background: ${props => {
+    if (props.$variant === 'danger') return '#f56565';
+    if (props.$variant === 'warning') return '#ed8936';
+    if (props.$variant === 'success') return '#48bb78';
+    if (props.$variant === 'info') return '#4299e1';
+    return '#667eea';
+  }};
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  transition: all 0.2s;
+  
+  &:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+`;
+
+const Pagination = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  background: white;
+  border-top: 1px solid #e2e8f0;
+`;
+
+const PageButton = styled.button`
+  background: ${props => props.$active ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white'};
+  color: ${props => props.$active ? 'white' : '#4a5568'};
+  border: 2px solid ${props => props.$active ? 'transparent' : '#e2e8f0'};
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  min-width: 40px;
+  
+  &:hover {
+    background: ${props => props.$active ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f7fafc'};
+    border-color: ${props => props.$active ? 'transparent' : '#cbd5e0'};
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const FilterBar = styled.div`
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 20px;
+  background: white;
+  border-radius: 12px 12px 0 0;
+  border-bottom: 2px solid #e2e8f0;
+`;
+
+const Input = styled.input`
+  padding: 10px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  flex: 1;
+  transition: border-color 0.2s;
+  
+  &:focus {
+    outline: none;
+    border-color: #667eea;
+  }
+  
+  &::placeholder {
+    color: #a0aec0;
+  }
+`;
+
+const Select = styled.select`
+  padding: 10px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  min-width: 180px;
+  transition: border-color 0.2s;
+  
+  &:focus {
+    outline: none;
+    border-color: #667eea;
+  }
+`;
+
+const Modal = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  padding: 32px;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 4px;
+  }
+`;
+
+const ModalTitle = styled.h3`
+  margin: 0 0 24px 0;
+  font-size: 24px;
+  color: #1a202c;
+  font-weight: 700;
+`;
+
+const FormGroup = styled.div`
+  margin-bottom: 24px;
+`;
+
+const Label = styled.label`
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 14px;
+`;
+
+const DualSelect = styled.div`
+  display: flex;
+  gap: 12px;
+  align-items: center;
+`;
+
+const SelectBox = styled.select`
+  flex: 1;
+  padding: 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  height: 180px;
+  font-size: 14px;
+  
+  &:focus {
+    outline: none;
+    border-color: #667eea;
+  }
+`;
+
+const ArrowButtons = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const ArrowButton = styled.button`
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    background: #764ba2;
+    transform: scale(1.1);
+  }
+`;
+
+const CheckboxLabel = styled.label`
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 500;
+  color: #2d3748;
+`;
+
+const Checkbox = styled.input`
+  margin-right: 10px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #667eea;
+`;
+
+const ModalActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 2px solid #e2e8f0;
+`;
+
+const FileUploadButton = styled.label`
+  background: #4299e1;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+  
+  &:hover {
+    background: #3182ce;
+    transform: translateY(-2px);
+  }
+  
+  input {
+    display: none;
+  }
+`;
+
+const StatusBadge = styled.span`
+  background: ${props => {
+    if (props.$status === 'Active') return 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
+    if (props.$status === 'Paused') return 'linear-gradient(135deg, #ed8936 0%, #dd6b20 100%)';
+    if (props.$status === 'Testing') return 'linear-gradient(135deg, #4299e1 0%, #3182ce 100%)';
+    return 'linear-gradient(135deg, #f56565 0%, #e53e3e 100%)';
+  }};
+  color: white;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+`;
 
 function App() {
-  const existingEntities = [
-    { name: "Entity1", field1: "value1" },
-    { name: "Entity2", field1: "value2" }
-  ];
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activePage, setActivePage] = useState('home');
+  const [expandedMenus, setExpandedMenus] = useState({ envoy: true });
+  const [showUseCaseModal, setShowUseCaseModal] = useState(false);
+  const [showAgentModal, setShowAgentModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [titleFilter, setTitleFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [chatInput, setChatInput] = useState('');
+  const [showChat, setShowChat] = useState(false);
+  
+  const [useCases, setUseCases] = useState([
+    { id: 1, title: 'Customer Support Bot', status: 'Active', agents: 3 },
+    { id: 2, title: 'Sales Assistant', status: 'Paused', agents: 2 },
+    { id: 3, title: 'HR Automation', status: 'Active', agents: 4 },
+    { id: 4, title: 'Data Analyzer', status: 'Testing', agents: 1 },
+    { id: 5, title: 'Content Generator', status: 'Active', agents: 2 },
+    { id: 6, title: 'Email Classifier', status: 'Testing', agents: 2 },
+    { id: 7, title: 'Sentiment Analysis', status: 'Active', agents: 3 },
+  ]);
+  
+  const [agents, setAgents] = useState([
+    { id: 1, title: 'Support Agent V1', type: 'Orchestra', version: '1.2.0' },
+    { id: 2, title: 'Sales Agent Pro', type: 'Worker', version: '2.0.1' },
+    { id: 3, title: 'HR Helper', type: 'Orchestra', version: '1.5.3' },
+    { id: 4, title: 'Analytics Agent', type: 'Worker', version: '1.0.0' },
+    { id: 5, title: 'Content Writer', type: 'Orchestra', version: '2.1.0' },
+  ]);
 
-  const newEntities = [
-    { name: "entity3", field1: "value3" },
-    { name: "entity2", field1: "duplicate" } // This should trigger an error due to case insensitivity
-  ];
+  const [newUseCase, setNewUseCase] = useState({
+    title: '',
+    description: '',
+    memory: false,
+    serviceLevel: 'standard'
+  });
 
-  const result = validateUniqueEntityNames(existingEntities, newEntities);
+  const [newAgent, setNewAgent] = useState({
+    title: '',
+    description: ''
+  });
+
+  const itemsPerPage = 5;
+
+  const toggleMenu = (menu) => {
+    setExpandedMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
+  };
+
+  const handleAddUseCase = () => {
+    if (newUseCase.title) {
+      setUseCases([...useCases, {
+        id: useCases.length + 1,
+        title: newUseCase.title,
+        status: 'Testing',
+        agents: 0
+      }]);
+      setNewUseCase({ title: '', description: '', memory: false, serviceLevel: 'standard' });
+      setShowUseCaseModal(false);
+    }
+  };
+
+  const handleAddAgent = () => {
+    if (newAgent.title) {
+      setAgents([...agents, {
+        id: agents.length + 1,
+        title: newAgent.title,
+        type: 'Orchestra',
+        version: '1.0.0'
+      }]);
+      setNewAgent({ title: '', description: '' });
+      setShowAgentModal(false);
+    }
+  };
+
+  const handleDeleteUseCase = (id) => {
+    setUseCases(useCases.filter(uc => uc.id !== id));
+  };
+
+  const handleSendMessage = () => {
+    if (chatInput.trim()) {
+      setShowChat(true);
+      setChatInput('');
+    }
+  };
+
+  const filteredUseCases = useCases.filter(uc => {
+    const matchesTitle = uc.title.toLowerCase().includes(titleFilter.toLowerCase());
+    const matchesStatus = statusFilter ? uc.status === statusFilter : true;
+    return matchesTitle && matchesStatus;
+  });
+
+  const totalPages = Math.ceil(filteredUseCases.length / itemsPerPage);
+  const paginatedUseCases = filteredUseCases.slice(
+    (currentPage - 1) * itemsPerPage, 
+    currentPage * itemsPerPage
+  );
+
+  const agentTotalPages = Math.ceil(agents.length / itemsPerPage);
+  const paginatedAgents = agents.slice(
+    (currentPage - 1) * itemsPerPage, 
+    currentPage * itemsPerPage
+  );
+
+  const renderHome = () => (
+    <ChatContainer>
+      <PageHeader>
+        <PageTitle>AI Assistant</PageTitle>
+        <PageSubtitle>Ask me anything or choose a suggestion below</PageSubtitle>
+      </PageHeader>
+      
+      <Suggestions>
+        <SuggestionChip onClick={() => setChatInput('Help me write a professional email')}>
+          Help me write an email
+        </SuggestionChip>
+        <SuggestionChip onClick={() => setChatInput('Analyze customer feedback data')}>
+          Analyze this data
+        </SuggestionChip>
+        <SuggestionChip onClick={() => setChatInput('Generate a quarterly report')}>
+          Generate a report
+        </SuggestionChip>
+        <SuggestionChip onClick={() => setChatInput('Create a summary of recent trends')}>
+          Create a summary
+        </SuggestionChip>
+      </Suggestions>
+      
+      <InputSection>
+        <TextArea 
+          placeholder="Type your message here..." 
+          value={chatInput}
+          onChange={(e) => setChatInput(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
+        />
+        <SendButton onClick={handleSendMessage}>
+          <Send size={18} />
+          Send Message
+        </SendButton>
+      </InputSection>
+      
+      {showChat && (
+        <ChatHistory>
+          <MessageRow $align="right">
+            <MessageBubble $type="user">
+              How can I improve my customer support workflow?
+              <MessageActions>
+                <IconButton $user>
+                  <Edit2 size={16} />
+                </IconButton>
+              </MessageActions>
+            </MessageBubble>
+          </MessageRow>
+          
+          <MessageRow>
+            <MessageBubble>
+              <ThinkingLoader>AI is thinking</ThinkingLoader>
+              Here are some comprehensive recommendations to improve your customer support workflow:
+              
+              <br/><br/>
+              <strong>1. Implement Automated Ticket Routing</strong><br/>
+              Use AI to categorize and route tickets to the right team members based on expertise and availability.
+              
+              <br/><br/>
+              <strong>2. Deploy AI-Powered Chatbots</strong><br/>
+              Handle common queries instantly with intelligent chatbots, reducing response time and workload.
+              
+              <br/><br/>
+              <strong>3. Create a Knowledge Base</strong><br/>
+              Build a comprehensive self-service portal where customers can find answers quickly.
+              
+              <br/><br/>
+              <strong>4. Set Up SLA Monitoring</strong><br/>
+              Track response and resolution times with automated alerts to maintain service quality.
+              
+              <MessageActions>
+                <IconButton title="Copy to clipboard">
+                  <Copy size={16} />
+                </IconButton>
+                <IconButton title="Regenerate response">
+                  <RefreshCw size={16} />
+                </IconButton>
+              </MessageActions>
+            </MessageBubble>
+          </MessageRow>
+        </ChatHistory>
+      )}
+    </ChatContainer>
+  );
+
+  const renderUseCases = () => (
+    <>
+      <TopBar>
+        <PageHeader>
+          <PageTitle>Use Cases</PageTitle>
+          <PageSubtitle>Manage your AI-powered use cases</PageSubtitle>
+        </PageHeader>
+        <Button onClick={() => setShowUseCaseModal(true)}>
+          + Add New Use Case
+        </Button>
+      </TopBar>
+      
+      <TableContainer>
+        <FilterBar>
+          <Input 
+            placeholder="Filter by title..." 
+            value={titleFilter}
+            onChange={(e) => {
+              setTitleFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
+          <Select value={statusFilter} onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setCurrentPage(1);
+          }}>
+            <option value="">All Status</option>
+            <option value="Active">Active</option>
+            <option value="Paused">Paused</option>
+            <option value="Testing">Testing</option>
+          </Select>
+        </FilterBar>
+        
+        <Table>
+          <thead>
+            <tr>
+              <Th>Title</Th>
+              <Th>Status</Th>
+              <Th>Agents</Th>
+              <Th>Actions</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedUseCases.map(uc => (
+              <Tr key={uc.id}>
+                <Td><strong>{uc.title}</strong></Td>
+                <Td><StatusBadge $status={uc.status}>{uc.status}</StatusBadge></Td>
+                <Td>{uc.agents} agents</Td>
+                <Td>
+                  <ActionButtons>
+                    <SmallButton $variant="danger" onClick={() => handleDeleteUseCase(uc.id)} title="Delete">
+                      <Trash2 size={14} />
+                    </SmallButton>
+                    <SmallButton title="View">
+                      <Eye size={14} />
+                    </SmallButton>
+                    <SmallButton $variant="info" title="Monitor">
+                      <Monitor size={14} />
+                    </SmallButton>
+                    <SmallButton $variant="warning" title="Try">
+                      <Play size={14} />
+                    </SmallButton>
+                    <SmallButton $variant="warning" title="Pause">
+                      <Pause size={14} />
+                    </SmallButton>
+                    <SmallButton $variant="success" title="Publish">
+                      <CheckCircle size={14} /> Publish
+                    </SmallButton>
+                  </ActionButtons>
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+        
+        <Pagination>
+          <PageButton 
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft size={16} />
+          </PageButton>
+          {[...Array(totalPages)].map((_, i) => (
+            <PageButton 
+              key={i + 1} 
+              $active={currentPage === i + 1} 
+              onClick={() => setCurrentPage(i + 1)}
+            >
+              {i + 1}
+            </PageButton>
+          ))}
+          <PageButton 
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight size={16} />
+          </PageButton>
+        </Pagination>
+      </TableContainer>
+    </>
+  );
+
+  const renderAgents = () => (
+    <>
+      <TopBar>
+        <PageHeader>
+          <PageTitle>AI Agents</PageTitle>
+          <PageSubtitle>Manage your intelligent agents</PageSubtitle>
+        </PageHeader>
+        <Button onClick={() => setShowAgentModal(true)}>
+          + Add New Agent
+        </Button>
+      </TopBar>
+      
+      <TableContainer>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Title</Th>
+              <Th>Type</Th>
+              <Th>Version</Th>
+              <Th>Actions</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedAgents.map(agent => (
+              <Tr key={agent.id}>
+                <Td><strong>{agent.title}</strong></Td>
+                <Td>{agent.type}</Td>
+                <Td><StatusBadge $status="Active">v{agent.version}</StatusBadge></Td>
+                <Td>
+                  <ActionButtons>
+                    <SmallButton title="View Details">
+                      <Eye size={14} /> View
+                    </SmallButton>
+                    <SmallButton $variant="success" title="Add to Use Case">
+                      + Add to Use Case
+                    </SmallButton>
+                  </ActionButtons>
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+        
+        <Pagination>
+          <PageButton 
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft size={16} />
+          </PageButton>
+          {[...Array(agentTotalPages)].map((_, i) => (
+            <PageButton 
+              key={i + 1} 
+              $active={currentPage === i + 1} 
+              onClick={() => setCurrentPage(i + 1)}
+            >
+              {i + 1}
+            </PageButton>
+          ))}
+          <PageButton 
+            onClick={() => setCurrentPage(p => Math.min(agentTotalPages, p + 1))}
+            disabled={currentPage === agentTotalPages}
+          >
+            <ChevronRight size={16} />
+          </PageButton>
+        </Pagination>
+      </TableContainer>
+    </>
+  );
+
+  const renderUseCaseModal = () => (
+    <Modal onClick={() => setShowUseCaseModal(false)}>
+      <ModalContent onClick={(e) => e.stopPropagation()}>
+        <ModalTitle>Add New Use Case</ModalTitle>
+        
+        <FormGroup>
+          <Label>Title *</Label>
+          <Input 
+            value={newUseCase.title}
+            onChange={(e) => setNewUseCase({...newUseCase, title: e.target.value})}
+            placeholder="Enter use case title"
+          />
+        </FormGroup>
+        
+        <FormGroup>
+          <Label>Description</Label>
+          <TextArea 
+            value={newUseCase.description}
+            onChange={(e) => setNewUseCase({...newUseCase, description: e.target.value})}
+            style={{ minHeight: '100px' }}
+            placeholder="Describe your use case..."
+          />
+        </FormGroup>
+        
+        <FormGroup>
+          <Label>Orchestra Agent</Label>
+          <FileUploadButton>
+            <Upload size={16} />
+            Upload Agent File
+            <input type="file" accept=".json,.yaml,.yml" />
+          </FileUploadButton>
+        </FormGroup>
+        
+        <FormGroup>
+          <Label>Worker Agent</Label>
+          <DualSelect>
+            <SelectBox multiple>
+              <option>Support Agent V1</option>
+              <option>Sales Agent Pro</option>
+              <option>HR Helper</option>
+              <option>Analytics Agent</option>
+            </SelectBox>
+            <ArrowButtons>
+              <ArrowButton>→</ArrowButton>
+              <ArrowButton>←</ArrowButton>
+            </ArrowButtons>
+            <SelectBox multiple>
+              <option>Selected Agent 1</option>
+            </SelectBox>
+          </DualSelect>
+        </FormGroup>
+        
+        <FormGroup>
+          <Label>Tools</Label>
+          <DualSelect>
+            <SelectBox multiple>
+              <option>Web Search</option>
+              <option>Calculator</option>
+              <option>API Integration</option>
+              <option>Database Query</option>
+              <option>File Parser</option>
+            </SelectBox>
+            <ArrowButtons>
+              <ArrowButton>→</ArrowButton>
+              <ArrowButton>←</ArrowButton>
+            </ArrowButtons>
+            <SelectBox multiple>
+              <option>Web Search</option>
+            </SelectBox>
+          </DualSelect>
+        </FormGroup>
+        
+        <FormGroup>
+          <CheckboxLabel>
+            <Checkbox 
+              type="checkbox" 
+              checked={newUseCase.memory}
+              onChange={(e) => setNewUseCase({...newUseCase, memory: e.target.checked})}
+            />
+            Enable Memory Field
+          </CheckboxLabel>
+        </FormGroup>
+        
+        <FormGroup>
+          <Label>Service Level</Label>
+          <Select 
+            value={newUseCase.serviceLevel}
+            onChange={(e) => setNewUseCase({...newUseCase, serviceLevel: e.target.value})}
+          >
+            <option value="standard">Standard</option>
+            <option value="premium">Premium</option>
+            <option value="enterprise">Enterprise</option>
+          </Select>
+        </FormGroup>
+        
+        <ModalActions>
+          <Button $variant="danger" onClick={() => setShowUseCaseModal(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleAddUseCase}>
+            Save Use Case
+          </Button>
+        </ModalActions>
+      </ModalContent>
+    </Modal>
+  );
+
+  const renderAgentModal = () => (
+    <Modal onClick={() => setShowAgentModal(false)}>
+      <ModalContent onClick={(e) => e.stopPropagation()}>
+        <ModalTitle>Add New Agent</ModalTitle>
+        
+        <FormGroup>
+          <Label>Title *</Label>
+          <Input 
+            value={newAgent.title}
+            onChange={(e) => setNewAgent({...newAgent, title: e.target.value})}
+            placeholder="Enter agent title"
+          />
+        </FormGroup>
+        
+        <FormGroup>
+          <Label>Description</Label>
+          <TextArea 
+            value={newAgent.description}
+            onChange={(e) => setNewAgent({...newAgent, description: e.target.value})}
+            style={{ minHeight: '100px' }}
+            placeholder="Describe your agent..."
+          />
+        </FormGroup>
+        
+        <FormGroup>
+          <Label>Upload Agent (GitHub)</Label>
+          <FileUploadButton>
+            <Upload size={16} />
+            Upload from GitHub
+            <input type="file" accept=".json,.yaml,.yml,.py" />
+          </FileUploadButton>
+        </FormGroup>
+        
+        <FormGroup>
+          <Label>Large Language Model</Label>
+          <FileUploadButton>
+            <Upload size={16} />
+            Upload LLM Config
+            <input type="file" accept=".json,.yaml,.yml" />
+          </FileUploadButton>
+        </FormGroup>
+        
+        <FormGroup>
+          <Label>Guardrails</Label>
+          <DualSelect>
+            <SelectBox multiple>
+              <option>Content Filter</option>
+              <option>PII Protection</option>
+              <option>Rate Limiter</option>
+              <option>Toxicity Check</option>
+              <option>Fact Verification</option>
+            </SelectBox>
+            <ArrowButtons>
+              <ArrowButton>→</ArrowButton>
+              <ArrowButton>←</ArrowButton>
+            </ArrowButtons>
+            <SelectBox multiple>
+              <option>Content Filter</option>
+            </SelectBox>
+          </DualSelect>
+        </FormGroup>
+        
+        <FormGroup>
+          <Label>Tools</Label>
+          <DualSelect>
+            <SelectBox multiple>
+              <option>Web Search</option>
+              <option>Database Query</option>
+              <option>API Integration</option>
+              <option>Code Interpreter</option>
+              <option>Image Generator</option>
+            </SelectBox>
+            <ArrowButtons>
+              <ArrowButton>→</ArrowButton>
+              <ArrowButton>←</ArrowButton>
+            </ArrowButtons>
+            <SelectBox multiple />
+          </DualSelect>
+        </FormGroup>
+        
+        <ModalActions>
+          <Button $variant="danger" onClick={() => setShowAgentModal(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleAddAgent}>
+            Save Agent
+          </Button>
+        </ModalActions>
+      </ModalContent>
+    </Modal>
+  );
 
   return (
-    <div>
-      {result.error ? (
-        <p>Error: {result.error}</p>
-      ) : (
-        <p>All entity names are unique.</p>
-      )}
-    </div>
+    <AppContainer>
+      <Header $sidebarOpen={sidebarOpen}>
+        <MenuButton onClick={() => setSidebarOpen(!sidebarOpen)}>
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </MenuButton>
+        <Logo>Envoy Platform</Logo>
+      </Header>
+      
+      <Sidebar $open={sidebarOpen}>
+        <MenuSection>
+          <MenuTitle onClick={() => toggleMenu('envoy')}>
+            <span>Envoy</span>
+            {expandedMenus.envoy ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+          </MenuTitle>
+          <SubMenu $open={expandedMenus.envoy}>
+            <SubMenuItem 
+              $active={activePage === 'use-cases'} 
+              onClick={() => { setActivePage('use-cases'); setCurrentPage(1); }}
+            >
+              Use Cases
+            </SubMenuItem>
+            <SubMenuItem 
+              $active={activePage === 'agents'} 
+              onClick={() => { setActivePage('agents'); setCurrentPage(1); }}
+            >
+              AI Agents
+            </SubMenuItem>
+            <SubMenuItem>Monitor</SubMenuItem>
+          </SubMenu>
+        </MenuSection>
+        
+        <MenuSection>
+          <MenuTitle onClick={() => toggleMenu('cortex')}>
+            <span>Cortex (LLM)</span>
+            {expandedMenus.cortex ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+          </MenuTitle>
+          <SubMenu $open={expandedMenus.cortex}>
+            <SubMenuItem>View</SubMenuItem>
+            <SubMenuItem>Evaluate</SubMenuItem>
+            <SubMenuItem>Monitor</SubMenuItem>
+            <SubMenuItem>Guardrails</SubMenuItem>
+          </SubMenu>
+        </MenuSection>
+        
+        <MenuSection>
+          <MenuTitle onClick={() => toggleMenu('tools')}>
+            <span>Tools</span>
+            {expandedMenus.tools ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+          </MenuTitle>
+          <SubMenu $open={expandedMenus.tools}>
+            <SubMenuItem>View</SubMenuItem>
+          </SubMenu>
+        </MenuSection>
+        
+        <MenuSection>
+          <MenuTitle onClick={() => toggleMenu('atlas')}>
+            <span>Atlas (ML)</span>
+            {expandedMenus.atlas ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+          </MenuTitle>
+          <SubMenu $open={expandedMenus.atlas}>
+            <SubMenuItem>Use Cases</SubMenuItem>
+            <SubMenuItem>Model</SubMenuItem>
+            <SubMenuItem>Monitor</SubMenuItem>
+          </SubMenu>
+        </MenuSection>
+      </Sidebar>
+      
+      <MainContent $sidebarOpen={sidebarOpen}>
+        {activePage === 'home' && renderHome()}
+        {activePage === 'use-cases' && renderUseCases()}
+        {activePage === 'agents' && renderAgents()}
+      </MainContent>
+      
+      {showUseCaseModal && renderUseCaseModal()}
+      {showAgentModal && renderAgentModal()}
+    </AppContainer>
   );
 }
 
 export default App;
-
-
-import React from 'react';
-import { uniqBy, every } from 'lodash';
-
-const validateEntityNames = (existingEntities, newEntities) => {
-  const allEntities = [...existingEntities, ...newEntities];
-  
-  // Check if all names are non-empty, non-null, and non-undefined
-  if (!every(allEntities, entity => entity.name && typeof entity.name === 'string' && entity.name.trim() !== '')) {
-    return { error: "Entity name cannot be empty, null, or undefined." };
-  }
-
-  // Check for uniqueness
-  const uniqueEntities = uniqBy(allEntities, 'name');
-  if (uniqueEntities.length !== allEntities.length) {
-    return { error: "Duplicate entity names found." };
-  }
-
-  return { error: null }; // All checks passed
-};
-
-const ExampleComponent = () => {
-  const existingEntities = [
-    { name: "Entity1", field1: "value1" },
-    { name: "Entity2", field1: "value2" }
-  ];
-
-  const newEntities = [
-    { name: "Entity3", field1: "value3" },
-    { name: "", field1: "duplicate" } // This should trigger an error due to empty name
-  ];
-
-  const validationResult = validateEntityNames(existingEntities, newEntities);
-
-  return (
-    <div>
-      {validationResult.error ? (
-        <p>Error: {validationResult.error}</p>
-      ) : (
-        <p>All entity names are valid and unique.</p>
-      )}
-    </div>
-  );
-};
-
-export default ExampleComponent;
-
-
-import React from 'react';
-
-const validateEntityNames = (existingEntities, newEntities) => {
-  const allEntities = [...existingEntities, ...newEntities];
-
-  // Check if all names are non-empty, non-null, and non-undefined
-  const allNames = allEntities.map((entity) => entity.name?.trim()).filter(name => name);
-
-  if (allNames.length !== allEntities.length) {
-    return { error: "Entity name cannot be empty, null, or undefined." };
-  }
-
-  // Convert all names to lowercase and check for uniqueness
-  const lowerCaseNames = allNames.map((name) => name.toLowerCase());
-
-  // Use a Set to eliminate duplicates (case-insensitive)
-  const uniqueNames = [...new Set(lowerCaseNames)];
-
-  // If the length of uniqueNames is different, it means there are duplicates
-  if (uniqueNames.length !== lowerCaseNames.length) {
-    return { error: "Duplicate entity names found (case-insensitive)." };
-  }
-
-  return { error: null }; // All checks passed
-};
-
-const ExampleComponent = () => {
-  const existingEntities = [
-    { name: "Entity1", field1: "value1" },
-    { name: "Entity2", field1: "value2" }
-  ];
-
-  const newEntities = [
-    { name: "Entity3", field1: "value3" },
-    { name: "entity1", field1: "duplicate" }, // This should trigger an error due to case-insensitive duplicate name
-    { name: " ", field1: "invalid" } // This should trigger an error due to empty name
-  ];
-
-  const validationResult = validateEntityNames(existingEntities, newEntities);
-
-  return (
-    <div>
-      {validationResult.error ? (
-        <p>Error: {validationResult.error}</p>
-      ) : (
-        <p>All entity names are valid and unique.</p>
-      )}
-    </div>
-  );
-};
-
-export default ExampleComponent;
-
-
-
-// AttributeForm.js
-import React, { useState } from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
-import TextField from '@mui/material/TextField';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Radio from '@mui/material/Radio';
-import RadioGroup from '@mui/material/RadioGroup';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import FormHelperText from '@mui/material/FormHelperText';
-import { Button } from '@mui/material';
-
-const AttributeForm = ({ onClose }) => {
-  const [formData, setFormData] = useState({
-    attributeName: '',
-    attributeType: '',
-    attributeDefinition: '',
-    criticalDataElement: 'no',
-    attributeNullable: 'yes'
-  });
-  const [errors, setErrors] = useState({});
-
-  // Handle form input changes
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setFormData(prevState => ({
-      ...prevState,
-      [name]: value
-    }));
-    setErrors(prevErrors => ({
-      ...prevErrors,
-      [name]: ''
-    }));
-  };
-
-  // Form validation
-  const validate = () => {
-    let tempErrors = {};
-    if (!formData.attributeName || formData.attributeName.length < 3) {
-      tempErrors.attributeName = 'Attribute Name must be at least 3 characters long.';
-    }
-    if (!formData.attributeType) {
-      tempErrors.attributeType = 'Attribute Type is required.';
-    }
-    if (!formData.attributeDefinition || formData.attributeDefinition.length < 3) {
-      tempErrors.attributeDefinition = 'Attribute Definition must be at least 3 characters long.';
-    }
-    setErrors(tempErrors);
-    return Object.keys(tempErrors).length === 0;
-  };
-
-  // Handle form submission
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    if (validate()) {
-      console.log(formData);
-      onClose(); // Close the form after submission
-    }
-  };
-
-  return (
-    <Dialog open={true} onClose={onClose}>
-      <DialogTitle>Add Attribute</DialogTitle>
-      <DialogContent>
-        <form>
-          <TextField
-            autoFocus
-            margin="dense"
-            name="attributeName"
-            label="Attribute Name"
-            type="text"
-            fullWidth
-            value={formData.attributeName}
-            onChange={handleChange}
-            error={!!errors.attributeName}
-            helperText={errors.attributeName}
-          />
-          <FormControl fullWidth margin="dense" error={!!errors.attributeType}>
-            <InputLabel id="attribute-type-label">Attribute Type</InputLabel>
-            <Select
-              labelId="attribute-type-label"
-              name="attributeType"
-              value={formData.attributeType}
-              label="Attribute Type"
-              onChange={handleChange}
-            >
-              <MenuItem value="Number">Number</MenuItem>
-              <MenuItem value="String">String</MenuItem>
-              <MenuItem value="Float">Float</MenuItem>
-              <MenuItem value="Boolean">Boolean</MenuItem>
-              <MenuItem value="Object">Object</MenuItem>
-              <MenuItem value="Array">Array</MenuItem>
-            </Select>
-            {errors.attributeType && <FormHelperText>{errors.attributeType}</FormHelperText>}
-          </FormControl>
-          <TextField
-            margin="dense"
-            name="attributeDefinition"
-            label="Attribute Definition"
-            type="text"
-            fullWidth
-            multiline
-            rows={4}
-            value={formData.attributeDefinition}
-            onChange={handleChange}
-            error={!!errors.attributeDefinition}
-            helperText={errors.attributeDefinition}
-          />
-          <FormControl component="fieldset" margin="dense">
-            <legend>Critical Data Element</legend>
-            <RadioGroup row aria-label="criticalDataElement" name="criticalDataElement" value={formData.criticalDataElement} onChange={handleChange}>
-              <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-              <FormControlLabel value="no" control={<Radio />} label="No" />
-            </RadioGroup>
-          </FormControl>
-          <FormControl component="fieldset" margin="dense">
-            <legend>Is Nullable</legend>
-            <RadioGroup row aria-label="attributeNullable" name="attributeNullable" value={formData.attributeNullable} onChange={handleChange}>
-              <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-              <FormControlLabel value="no" control={<Radio />} label="No" />
-            </RadioGroup>
-          </FormControl>
-        </form>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit}>Submit</Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
-export default AttributeForm;
-
-
-
-function App() {
-  const [count, setCount] = useState(0)
-  const [openForm, setOpenForm] = useState(false);
-
-  const handleClickOpen = () => {
-    setOpenForm(true);
-  };
-
-  const handleCloseForm = () => {
-    setOpenForm(false);
-  };
-
-  return (
-    <>
-     <Button variant="outlined" onClick={handleClickOpen}>
-        Open Form
-      </Button>
-      {openForm && <AttributeForm onClose={handleCloseForm} />}
-
-      <ParentComponent />
-    </>
-  )
-}
-
-
-
-const validateBulkUpload = (files) => {
-  let errors = [];
-
-  files.forEach((file, index) => {
-    let fileErrors = {};
-    
-    // Assuming each file contains a JSON object with the same structure as formData
-    if (typeof file !== 'object' || file === null) {
-      fileErrors.general = 'File content must be a valid JSON object';
-    } else {
-      // Check each field
-      if (!file.attributeName || file.attributeName.length < 3) {
-        fileErrors.attributeName = 'Attribute Name must be at least 3 characters long.';
-      }
-      if (!file.attributeType) {
-        fileErrors.attributeType = 'Attribute Type is required.';
-      }
-      if (!file.attributeDefinition || file.attributeDefinition.length < 3) {
-        fileErrors.attributeDefinition = 'Attribute Definition must be at least 3 characters long.';
-      }
-      if (!['yes', 'no'].includes(file.criticalDataElement)) {
-        fileErrors.criticalDataElement = 'Critical Data Element must be either "yes" or "no".';
-      }
-      if (!['yes', 'no'].includes(file.attributeNullable)) {
-        fileErrors.attributeNullable = 'Is Nullable must be either "yes" or "no".';
-      }
-    }
-
-    if (Object.keys(fileErrors).length > 0) {
-      errors.push({ file: index + 1, errors: fileErrors });
-    }
-  });
-
-  if (errors.length > 0) {
-    throw new Error(JSON.stringify(errors, null, 2));
-  }
-
-  return true; // All files passed validation
-};
