@@ -1,938 +1,984 @@
-// Basic usage
-<GenericTable
-  columnDefs={columnDefs}
-  rowData={staticData}
-/>
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import styled from 'styled-components';
+import { ChevronDown, ChevronRight, Menu, X, Edit2, Copy, RefreshCw, Trash2, Eye, Play, Pause, Upload, ChevronLeft, Send, Monitor, CheckCircle, Sparkles, MessageSquare } from 'lucide-react';
 
-// Advanced usage with customization
-<GenericTable
-  columnDefs={columnDefs}
-  serverSide={true}
-  apiUrl="/api/data"
-  gridHeight="600px"
-  enableExport={true}
-  customLoadingOverlay={<CustomLoader />}
-  axiosConfig={{
-    headers: {
-      'Authorization': 'Bearer token'
-    }
-  }}
-  onError={(error) => console.error('Grid error:', error)}
-  customGridOptions={{
-    rowSelection: 'multiple',
-    animateRows: true
-  }}
-/>
+// Lloyds Bank Theme Colors
+const theme = {
+  primary: '#006A4D',
+  primaryDark: '#004D38',
+  primaryLight: '#00A878',
+  secondary: '#00494D',
+  accent: '#009639',
+  white: '#FFFFFF',
+  background: '#F5F5F5',
+  textPrimary: '#333333',
+  textSecondary: '#666666',
+  border: '#E0E0E0',
+  error: '#D32F2F',
+  warning: '#F57C00',
+  success: '#388E3C',
+  info: '#1976D2'
+};
 
-
-
-function YourComponent() {
-  const { showSnackbar } = useSnackbar();
-
-  const handleSomeAction = () => {
-    // Show success message
-    showSnackbar('Action completed!', 'success');
-
-    // Show error with custom configuration
-    showSnackbar('Something went wrong', 'error', {
-      variant: 'outlined',
-      anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
-    });
-  };
-
-  return (
-    // Your component JSX
-    <ConfigurableSnackbar
-      open={snackbarState.open}
-      onClose={hideSnackbar}
-      message={snackbarState.message}
-      severity={snackbarState.severity}
-    />
-  );
+// Types
+interface UseCase {
+  id: number;
+  title: string;
+  status: 'Active' | 'Paused' | 'Testing';
+  agents: number;
 }
 
-
-
-import React, { useState, useCallback, useRef, useMemo } from 'react';
-import PropTypes from 'prop-types';
-import { AgGridReact } from 'ag-grid-react';
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-alpine.css';
-import axios from 'axios';
-
-const GenericTable12 = ({
-  columnDefs,
-  rowData = [],
-  paginationPageSize = 20,
-  serverSide = false,
-  apiUrl = '',
-  fetchDataParams = {},
-  onGridReady = () => {},
-  onError = () => {},
-  gridTheme = 'ag-theme-alpine',
-  gridHeight = '500px',
-  gridWidth = '100%',
-  customLoadingOverlay,
-  axiosConfig = {},
-  defaultColDef = {},
-  enableExport = false,
-  noRowsMessage = 'No rows to show',
-  loadingMessage = 'Loading data...',
-  customGridOptions = {},
-  onDataLoaded = () => {},
-  autoRefreshInterval = 0, // Add auto-refresh interval in milliseconds (0 to disable)
-}) => {
-  const gridRef = useRef(null);
-  const totalRowsRef = useRef(0);
-  const currentPageSizeRef = useRef(paginationPageSize);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const autoRefreshIntervalRef = useRef(null);
-
-  // Handle API errors
-  const handleError = useCallback((err) => {
-    const errorMessage = err?.response?.data?.message || err.message || 'An error occurred';
-    setError({ message: errorMessage, timestamp: new Date() });
-    onError(err);
-    setLoading(false);
-  }, [onError]);
-
-  // Refresh data function
-  const refreshData = useCallback(async () => {
-    if (!gridRef.current?.api || loading) return;
-
-    setLoading(true);
-    
-    try {
-      if (serverSide) {
-        // For server-side, refresh current page
-        const currentPage = gridRef.current.api.paginationGetCurrentPage();
-        const dataSource = createDataSource(currentPageSizeRef.current);
-        
-        await new Promise((resolve, reject) => {
-          dataSource.getRows({
-            startRow: currentPage * currentPageSizeRef.current,
-            successCallback: (rows, totalRows) => {
-              gridRef.current.api.setRowData(rows);
-              totalRowsRef.current = totalRows;
-              setIsDataLoaded(true);
-              onDataLoaded(rows);
-              resolve();
-            },
-            failCallback: reject,
-          });
-        });
-      } else {
-        // For client-side, fetch all data
-        const response = await axios.get(apiUrl, {
-          params: fetchDataParams,
-          ...axiosConfig
-        });
-        
-        const newData = response.data.content || response.data;
-        gridRef.current.api.setRowData(newData);
-        totalRowsRef.current = newData.length;
-        setIsDataLoaded(true);
-        onDataLoaded(newData);
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [serverSide, apiUrl, fetchDataParams, axiosConfig, loading, handleError, onDataLoaded, createDataSource]);
-
-  // Setup auto-refresh
-  useEffect(() => {
-    if (autoRefreshInterval > 0) {
-      autoRefreshIntervalRef.current = setInterval(refreshData, autoRefreshInterval);
-    }
-    
-    return () => {
-      if (autoRefreshIntervalRef.current) {
-        clearInterval(autoRefreshIntervalRef.current);
-      }
-    };
-  }, [autoRefreshInterval, refreshData]);
-
-  // Rest of the component remains the same until the return statement
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-gray-500">
-          {loading ? 'Loading...' : `Total rows: ${totalRowsRef.current}`}
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={refreshData}
-            disabled={loading}
-            className={`px-4 py-2 rounded transition-colors ${
-              loading ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 text-white'
-            }`}
-          >
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
-          {enableExport && (
-            <button
-              onClick={exportToCSV}
-              disabled={loading || !isDataLoaded}
-              className={`px-4 py-2 rounded transition-colors ${
-                loading || !isDataLoaded ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 text-white'
-              }`}
-            >
-              Export to CSV
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className={`${gridTheme} relative`} style={{ height: gridHeight, width: gridWidth }}>
-        <AgGridReact
-          ref={gridRef}
-          columnDefs={processedColumnDefs}
-          rowModelType={serverSide ? "infinite" : "clientSide"}
-          onGridReady={handleGridReady}
-          onPaginationChanged={onPaginationChanged}
-          cacheBlockSize={currentPageSizeRef.current}
-          pagination
-          paginationPageSize={currentPageSizeRef.current}
-          defaultColDef={mergedDefaultColDef}
-          enableCellTextSelection
-          copyHeadersToClipboard
-          suppressAggFuncInHeader
-          loadingOverlayComponent={LoadingOverlay}
-          noRowsOverlayComponent={NoRowsOverlay}
-          {...customGridOptions}
-        />
-      </div>
-    </div>
-  );
-};
-
-export default GenericTable12;
-
-
-const ParentComponent = () => {
-  const tableRef = useRef();
-
-  const handleSomeEvent = () => {
-    // Refresh the table data
-    tableRef.current?.refreshData();
-  };
-
-  return (
-    <div>
-      <button onClick={handleSomeEvent}>
-        Refresh Table Data
-      </button>
-      
-      <GenericTable12
-        ref={tableRef}
-        apiUrl="/api/data"
-        serverSide={true}
-        // ... other props
-      />
-    </div>
-  );
-};
-import React, { useState, useCallback, useRef, useMemo, forwardRef, useImperativeHandle, useEffect } from 'react';
-import { AgGridReact } from 'ag-grid-react';
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-alpine.css';
-import axios from 'axios';
-
-// Note the use of forwardRef here
-const GenericTable13 = forwardRef((props, ref) => {
-  const {
-    columnDefs,
-    rowData = [],
-    paginationPageSize = 20,
-    serverSide = false,
-    apiUrl = '',
-    fetchDataParams = {},
-    onGridReady = () => {},
-    onError = () => {},
-    gridTheme = 'ag-theme-alpine',
-    gridHeight = '500px',
-    gridWidth = '100%',
-    customLoadingOverlay,
-    axiosConfig = {},
-    defaultColDef = {},
-    enableExport = false,
-    noRowsMessage = 'No rows to show',
-    loadingMessage = 'Loading data...',
-    customGridOptions = {},
-    onDataLoaded = () => {},
-  } = props;
-
-  const gridRef = useRef(null);
-  const totalRowsRef = useRef(0);
-  const currentPageSizeRef = useRef(paginationPageSize);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-
-  // Handle API errors
-  const handleError = useCallback((err) => {
-    const errorMessage = err?.response?.data?.message || err.message || 'An error occurred';
-    setError({ message: errorMessage, timestamp: new Date() });
-    onError(err);
-    setLoading(false);
-  }, [onError]);
-
-  // Create data source
-  const createDataSource = useCallback((pageSize) => {
-    return {
-      getRows: async (params) => {
-        if (!apiUrl) {
-          params.failCallback();
-          return;
-        }
-
-        setLoading(true);
-        setIsDataLoaded(false);
-
-        try {
-          const response = await axios.get(apiUrl, {
-            params: {
-              page: params.startRow / pageSize,
-              size: pageSize,
-              sort: params.sortModel?.[0]?.sort,
-              sortField: params.sortModel?.[0]?.colId,
-              ...fetchDataParams
-            },
-            ...axiosConfig
-          });
-
-          const { content, totalElements } = response.data;
-          totalRowsRef.current = totalElements;
-
-          if (Array.isArray(content)) {
-            setIsDataLoaded(true);
-            params.successCallback(content, totalElements);
-            onDataLoaded(content);
-          } else {
-            throw new Error('Invalid data format received from server');
-          }
-        } catch (err) {
-          handleError(err);
-          params.failCallback();
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-  }, [apiUrl, fetchDataParams, axiosConfig, handleError, onDataLoaded]);
-
-  // Refresh data function
-  const refreshData = useCallback(async () => {
-    if (!gridRef.current?.api || loading) return;
-
-    setLoading(true);
-    
-    try {
-      if (serverSide) {
-        const currentPage = gridRef.current.api.paginationGetCurrentPage();
-        const dataSource = createDataSource(currentPageSizeRef.current);
-        
-        await new Promise((resolve, reject) => {
-          dataSource.getRows({
-            startRow: currentPage * currentPageSizeRef.current,
-            successCallback: (rows, totalRows) => {
-              gridRef.current.api.setRowData(rows);
-              totalRowsRef.current = totalRows;
-              setIsDataLoaded(true);
-              onDataLoaded(rows);
-              resolve();
-            },
-            failCallback: reject,
-          });
-        });
-      } else {
-        const response = await axios.get(apiUrl, {
-          params: fetchDataParams,
-          ...axiosConfig
-        });
-        
-        const newData = response.data.content || response.data;
-        gridRef.current.api.setRowData(newData);
-        totalRowsRef.current = newData.length;
-        setIsDataLoaded(true);
-        onDataLoaded(newData);
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [serverSide, apiUrl, fetchDataParams, axiosConfig, loading, handleError, onDataLoaded, createDataSource]);
-
-  // Expose methods via ref
-  useImperativeHandle(ref, () => ({
-    refreshData,
-    getGridApi: () => gridRef.current?.api,
-    isLoading: () => loading
-  }), [refreshData, loading]);
-
-  // Handle grid ready
-  const handleGridReady = useCallback((params) => {
-    if (serverSide) {
-      params.api.setGridOption('datasource', createDataSource(currentPageSizeRef.current));
-    }
-    onGridReady(params);
-  }, [serverSide, createDataSource, onGridReady]);
-
-  // Default column definitions
-  const defaultColDefMemo = useMemo(() => ({
-    sortable: true,
-    filter: true,
-    resizable: true,
-    ...defaultColDef
-  }), [defaultColDef]);
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className={`${gridTheme}`} style={{ height: gridHeight, width: gridWidth }}>
-        <AgGridReact
-          ref={gridRef}
-          columnDefs={columnDefs}
-          defaultColDef={defaultColDefMemo}
-          rowModelType={serverSide ? "infinite" : "clientSide"}
-          pagination={true}
-          paginationPageSize={paginationPageSize}
-          onGridReady={handleGridReady}
-          rowData={!serverSide ? rowData : undefined}
-          cacheBlockSize={paginationPageSize}
-          {...customGridOptions}
-        />
-      </div>
-    </div>
-  );
-});
-
-// Add display name for better debugging
-GenericTable13.displayName = 'GenericTable13';
-
-export default GenericTable13;
-
-
-
-import React, { useState, useCallback, useRef, useMemo, useEffect, useImperativeHandle, forwardRef } from 'react';
-import PropTypes from 'prop-types';
-import { AgGridReact } from 'ag-grid-react';
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-alpine.css';
-import axios from 'axios';
-
-const GenericTable13 = forwardRef(({
-  columnDefs,
-  rowData = [],
-  paginationPageSize = 20,
-  serverSide = false,
-  apiUrl = '',
-  fetchDataParams = {},
-  onGridReady = () => {},
-  onError = () => {},
-  gridTheme = 'ag-theme-alpine',
-  gridHeight = '500px',
-  gridWidth = '100%',
-  customLoadingOverlay,
-  axiosConfig = {},
-  defaultColDef = {},
-  enableExport = false,
-  noRowsMessage = 'No rows to show',
-  loadingMessage = 'Loading data...',
-  customGridOptions = {},
-  onDataLoaded = () => {},
-  autoRefreshInterval = 0,
-}, ref) =>  {
-  const gridRef = useRef(null);
-  const totalRowsRef = useRef(0);
-  const currentPageSizeRef = useRef(paginationPageSize);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const autoRefreshIntervalRef = useRef(null);
-
-  // Handle API errors
-  const handleError = useCallback((err) => {
-    const errorMessage = err?.response?.data?.message || err.message || 'An error occurred';
-    setError({ message: errorMessage, timestamp: new Date() });
-    onError(err);
-    setLoading(false);
-  }, [onError]);
-
-  useImperativeHandle(ref, () => ({
-    refreshData
-  }));
-  // Default column definitions
-  const mergedDefaultColDef = useMemo(() => ({
-    sortable: true,
-    filter: true,
-    resizable: true,
-    minWidth: 100,
-    ...defaultColDef
-  }), [defaultColDef]);
-
-  // Wrap cell renderers for loading state
-  const wrapCellRenderer = useCallback((renderer) => {
-    return (params) => {
-      if (!params.data || loading) {
-        return <div className="animate-pulse bg-gray-200 h-4 w-full rounded"></div>;
-      }
-      if (!isDataLoaded) {
-        return '';
-      }
-      return renderer(params);
-    };
-  }, [isDataLoaded, loading]);
-
-  // Process column definitions
-  const processedColumnDefs = useMemo(() => {
-    return columnDefs.map(colDef => ({
-      ...colDef,
-      cellRenderer: colDef.cellRenderer ? wrapCellRenderer(colDef.cellRenderer) : undefined,
-      sortable: !loading && colDef.sortable,
-      filter: !loading && colDef.filter
-    }));
-  }, [columnDefs, wrapCellRenderer, loading]);
-
-  // Create data source (memoized)
-  const createDataSource = useCallback((pageSize) => {
-    return {
-      getRows: async (params) => {
-        if (!apiUrl) {
-          params.failCallback();
-          return;
-        }
-
-        setLoading(true);
-        setIsDataLoaded(false);
-
-        try {
-          const response = await axios.get(apiUrl, {
-            params: {
-              page: params.startRow / pageSize,
-              size: pageSize,
-              sort: params.sortModel?.[0]?.sort,
-              sortField: params.sortModel?.[0]?.colId,
-              ...fetchDataParams
-            },
-            ...axiosConfig
-          });
-
-          const { content, totalElements } = response.data;
-          totalRowsRef.current = totalElements;
-
-          if (Array.isArray(content)) {
-            setIsDataLoaded(true);
-            params.successCallback(content, totalElements);
-            onDataLoaded(content);
-          } else {
-            throw new Error('Invalid data format received from server');
-          }
-        } catch (err) {
-          handleError(err);
-          params.failCallback();
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-  }, [apiUrl, fetchDataParams, axiosConfig, handleError, onDataLoaded]);
-
-  // Handle grid ready event
-  const handleGridReady = useCallback((params) => {
-    try {
-      if (serverSide) {
-        params.api.setGridOption('datasource', createDataSource(currentPageSizeRef.current));
-      } else {
-        params.api.setGridOption('rowData', rowData);
-        totalRowsRef.current = rowData.length;
-        setIsDataLoaded(true);
-        onDataLoaded(rowData);
-      }
-
-      params.api.sizeColumnsToFit();
-      onGridReady(params);
-    } catch (err) {
-      handleError(err);
-    }
-  }, [serverSide, rowData, createDataSource, onGridReady, handleError, onDataLoaded]);
-
-  // Handle page size change
-  const onPaginationChanged = useCallback((params) => {
-    if (!gridRef.current?.api) return;
-
-    const newPageSize = params.api.paginationGetPageSize();
-    if (newPageSize !== currentPageSizeRef.current) {
-      currentPageSizeRef.current = newPageSize;
-
-      if (serverSide) {
-        params.api.setGridOption('datasource', createDataSource(newPageSize));
-      }
-    }
-  }, [serverSide, createDataSource]);
-
-  // Export to CSV
-  const exportToCSV = useCallback(() => {
-    if (!gridRef.current?.api) return;
-    try {
-      gridRef.current.api.exportDataAsCsv({
-        skipHeader: false,
-        skipFooters: true,
-        skipGroups: true,
-        fileName: `export-${new Date().toISOString()}.csv`
-      });
-    } catch (err) {
-      handleError(err);
-    }
-  }, [handleError]);
-
-  // Loading and no rows overlay components
-  const LoadingOverlay = () => (
-    customLoadingOverlay || (
-      <div className="flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-2"></div>
-          <div>{loadingMessage}</div>
-        </div>
-      </div>
-    )
-  );
-
-  const NoRowsOverlay = () => (
-    <div className="flex items-center justify-center p-4">
-      <div className="text-center text-gray-500">
-        {error ? error.message : noRowsMessage}
-      </div>
-    </div>
-  );
-
-  const refreshData = useCallback(async () => {
-    if (!gridRef.current?.api || loading) return;
-
-    setLoading(true);
-    
-    try {
-      if (serverSide) {
-        // For server-side, refresh current page
-        const currentPage = gridRef.current.api.paginationGetCurrentPage();
-        const dataSource = createDataSource(currentPageSizeRef.current);
-        
-        await new Promise((resolve, reject) => {
-          dataSource.getRows({
-            startRow: currentPage * currentPageSizeRef.current,
-            successCallback: (rows, totalRows) => {
-              gridRef.current.api.setRowData(rows);
-              totalRowsRef.current = totalRows;
-              setIsDataLoaded(true);
-              onDataLoaded(rows);
-              resolve();
-            },
-            failCallback: reject,
-          });
-        });
-      } else {
-        // For client-side, fetch all data
-        const response = await axios.get(apiUrl, {
-          params: fetchDataParams,
-          ...axiosConfig
-        });
-        
-        const newData = response.data.content || response.data;
-        gridRef.current.api.setRowData(newData);
-        totalRowsRef.current = newData.length;
-        setIsDataLoaded(true);
-        onDataLoaded(newData);
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [serverSide, apiUrl, fetchDataParams, axiosConfig, loading, handleError, onDataLoaded, createDataSource]);
-
-  // Setup auto-refresh
-  useEffect(() => {
-    if (autoRefreshInterval > 0) {
-      autoRefreshIntervalRef.current = setInterval(refreshData, autoRefreshInterval);
-    }
-    
-    return () => {
-      if (autoRefreshIntervalRef.current) {
-        clearInterval(autoRefreshIntervalRef.current);
-      }
-    };
-  }, [autoRefreshInterval, refreshData]);
-
-  return (
-    <div className="flex flex-col gap-4">
-      {enableExport && (
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-500">
-            {loading ? 'Loading...' : `Total rows: ${totalRowsRef.current}`}
-          </div>
-          <button
-            onClick={exportToCSV}
-            disabled={loading || !isDataLoaded}
-            className={`px-4 py-2 rounded transition-colors ${
-              loading || !isDataLoaded ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 text-white'
-            }`}
-          >
-            Export to CSV
-          </button>
-        </div>
-      )}
-
-      <div className={`${gridTheme} relative`} style={{ height: gridHeight, width: gridWidth }}>
-        <AgGridReact
-          ref={gridRef}
-          columnDefs={processedColumnDefs}
-          rowModelType={serverSide ? "infinite" : "clientSide"}
-          onGridReady={handleGridReady}
-          onPaginationChanged={onPaginationChanged}
-          cacheBlockSize={currentPageSizeRef.current}
-          pagination
-          paginationPageSize={currentPageSizeRef.current}
-          defaultColDef={mergedDefaultColDef}
-          enableCellTextSelection
-          copyHeadersToClipboard
-          suppressAggFuncInHeader
-          loadingOverlayComponent={LoadingOverlay}
-          noRowsOverlayComponent={NoRowsOverlay}
-          {...customGridOptions}
-        />
-      </div>
-    </div>
-  );
-});
-
-GenericTable13.displayName = 'GenericTable13';
-
-export default GenericTable13;
-
-
-
-
-
-import React, { useState, useCallback, useRef, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react';
-import PropTypes from 'prop-types';
-import { AgGridReact } from 'ag-grid-react';
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-alpine.css';
-import axios from 'axios';
-
-const GenericTable13 = forwardRef(({
-  columnDefs,
-  rowData = [],
-  paginationPageSize = 20,
-  serverSide = false,
-  apiUrl = '',
-  fetchDataParams = {},
-  onGridReady = () => {},
-  onError = () => {},
-  gridTheme = 'ag-theme-alpine',
-  gridHeight = '500px',
-  gridWidth = '100%',
-  customLoadingOverlay,
-  axiosConfig = {},
-  defaultColDef = {},
-  enableExport = false,
-  noRowsMessage = 'No rows to show',
-  loadingMessage = 'Loading data...',
-  customGridOptions = {},
-  onDataLoaded = () => {},
-  autoRefreshInterval = 0,
-}, ref) => {
-  const gridRef = useRef(null);
-  const totalRowsRef = useRef(0);
-  const currentPageSizeRef = useRef(paginationPageSize);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const autoRefreshIntervalRef = useRef(null);
-
-  const handleError = useCallback((err) => {
-    let errorMessage = 'An error occurred';
-    
-    try {
-      if (err?.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err?.message) {
-        errorMessage = err.message;
-      }
-    } catch (e) {
-      console.error('Error while processing error message:', e);
-    }
-
-    setError({ message: errorMessage, timestamp: new Date() });
-    onError(err);
-    setLoading(false);
-  }, [onError]);
-
-  const fetchServerSideData = async (currentPage, pageSize) => {
-    const response = await axios.get(apiUrl, {
-      params: {
-        page: currentPage,
-        size: pageSize,
-        ...fetchDataParams
-      },
-      ...axiosConfig
-    });
-
-    return response.data;
-  };
-
-  const refreshData = useCallback(async () => {
-    if (!gridRef.current?.api || loading || !apiUrl) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      if (serverSide) {
-        const currentPage = gridRef.current.api.paginationGetCurrentPage();
-        const response = await fetchServerSideData(currentPage, currentPageSizeRef.current);
-        
-        if (gridRef.current?.api) {
-          const content = Array.isArray(response.content) ? response.content : response;
-          const totalElements = response.totalElements || content.length;
-          
-          gridRef.current.api.setRowData(content);
-          totalRowsRef.current = totalElements;
-          setIsDataLoaded(true);
-          onDataLoaded(content);
-        }
-      } else {
-        const response = await axios.get(apiUrl, {
-          params: fetchDataParams,
-          ...axiosConfig
-        });
-        
-        if (gridRef.current?.api) {
-          const newData = response.data.content || response.data;
-          gridRef.current.api.setRowData(newData);
-          totalRowsRef.current = newData.length;
-          setIsDataLoaded(true);
-          onDataLoaded(newData);
-        }
-      }
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [serverSide, apiUrl, fetchDataParams, axiosConfig, loading, handleError, onDataLoaded]);
-
-  useImperativeHandle(ref, () => ({
-    refreshData: async () => {
-      try {
-        await refreshData();
-      } catch (err) {
-        handleError(err);
-      }
-    }
-  }));
-
-  const handleGridReady = useCallback(async (params) => {
-    try {
-      if (serverSide) {
-        const response = await fetchServerSideData(0, currentPageSizeRef.current);
-        const content = Array.isArray(response.content) ? response.content : response;
-        const totalElements = response.totalElements || content.length;
-        
-        params.api.setRowData(content);
-        totalRowsRef.current = totalElements;
-        setIsDataLoaded(true);
-        onDataLoaded(content);
-      } else {
-        params.api.setRowData(rowData);
-        totalRowsRef.current = rowData.length;
-        setIsDataLoaded(true);
-        onDataLoaded(rowData);
-      }
-
-      params.api.sizeColumnsToFit();
-      onGridReady(params);
-    } catch (err) {
-      handleError(err);
-    }
-  }, [serverSide, rowData, onGridReady, handleError, onDataLoaded]);
-
-  useEffect(() => {
-    if (autoRefreshInterval > 0) {
-      autoRefreshIntervalRef.current = setInterval(refreshData, autoRefreshInterval);
-    }
-    
-    return () => {
-      if (autoRefreshIntervalRef.current) {
-        clearInterval(autoRefreshIntervalRef.current);
-      }
-    };
-  }, [autoRefreshInterval, refreshData]);
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className={`${gridTheme} relative`} style={{ height: gridHeight, width: gridWidth }}>
-        <AgGridReact
-          ref={gridRef}
-          columnDefs={columnDefs}
-          rowModelType={serverSide ? "infinite" : "clientSide"}
-          onGridReady={handleGridReady}
-          cacheBlockSize={currentPageSizeRef.current}
-          pagination
-          paginationPageSize={currentPageSizeRef.current}
-          defaultColDef={defaultColDef}
-          enableCellTextSelection
-          copyHeadersToClipboard
-          suppressAggFuncInHeader
-          {...customGridOptions}
-        />
-      </div>
-    </div>
-  );
-});
-
-GenericTable13.displayName = 'GenericTable13';
-
-export default GenericTable13;
-
-
-const handleSomeEvent = async () => {
-  try {
-    await tableRef.current?.refreshData();
-  } catch (error) {
-    console.error('Error refreshing data:', error);
+interface Agent {
+  id: number;
+  title: string;
+  type: 'Orchestra' | 'Worker';
+  version: string;
+}
+
+interface Message {
+  id: number;
+  type: 'user' | 'ai';
+  content: string;
+  timestamp: Date;
+}
+
+// Styled Components - Layout
+const AppContainer = styled.div`
+  display: flex;
+  height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: ${theme.background};
+`;
+
+const Header = styled.header<{ $sidebarOpen: boolean }>`
+  position: fixed;
+  top: 0;
+  left: ${props => props.$sidebarOpen ? '280px' : '0'};
+  right: 0;
+  height: 70px;
+  background: ${theme.primary};
+  color: ${theme.white};
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 100;
+  transition: left 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+`;
+
+const MenuButton = styled.button`
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: ${theme.white};
+  cursor: pointer;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  margin-right: 20px;
+  border-radius: 8px;
+  transition: background 0.2s;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
   }
-};
+`;
 
+const Logo = styled.h1`
+  font-size: 24px;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+`;
 
-import React, { useEffect } from 'react';
+const SidebarContainer = styled.aside<{ $open: boolean }>`
+  position: fixed;
+  left: ${props => props.$open ? '0' : '-280px'};
+  top: 70px;
+  width: 280px;
+  height: calc(100vh - 70px);
+  background: ${theme.secondary};
+  color: ${theme.white};
+  transition: left 0.3s ease;
+  overflow-y: auto;
+  z-index: 99;
+  box-shadow: 2px 0 12px rgba(0,0,0,0.1);
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: ${theme.primaryDark};
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: ${theme.primary};
+    border-radius: 3px;
+  }
+`;
 
-const IframeComponent = () => {
-  useEffect(() => {
-    const iframe = document.querySelector('iframe');
-    
-    iframe.onload = () => {
-      try {
-        const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
-        const logoElement = iframeDocument.querySelector('.css-wg10xt');
-        if (logoElement) {
-          logoElement.style.display = 'none';
-        }
-      } catch (error) {
-        console.log('Cannot access iframe content due to Same-Origin Policy');
-      }
-    };
-  }, []);
+const MenuSection = styled.div`
+  margin: 8px 0;
+`;
+
+const MenuTitle = styled.div`
+  padding: 14px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s;
+  color: #e2e8f0;
+  font-size: 15px;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: ${theme.white};
+  }
+`;
+
+const SubMenu = styled.div<{ $open: boolean }>`
+  max-height: ${props => props.$open ? '500px' : '0'};
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  background: rgba(0, 0, 0, 0.2);
+`;
+
+const StyledLink = styled(Link)`
+  text-decoration: none;
+  color: inherit;
+`;
+
+const SubMenuItem = styled.div<{ $active?: boolean }>`
+  padding: 12px 20px 12px 40px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: #cbd5e0;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: ${theme.white};
+    padding-left: 44px;
+  }
+  
+  ${props => props.$active && `
+    background: ${theme.primaryLight};
+    color: ${theme.white};
+    border-left: 3px solid ${theme.accent};
+    font-weight: 500;
+  `}
+`;
+
+const MainContent = styled.main<{ $sidebarOpen: boolean }>`
+  margin-left: ${props => props.$sidebarOpen ? '280px' : '0'};
+  margin-top: 70px;
+  padding: 32px;
+  width: 100%;
+  transition: margin-left 0.3s ease;
+  min-height: calc(100vh - 70px);
+`;
+
+// Chat Styled Components
+const ChatContainer = styled.div`
+  max-width: 1100px;
+  margin: 0 auto;
+  height: calc(100vh - 134px);
+  display: flex;
+  flex-direction: column;
+`;
+
+const WelcomeSection = styled.div<{ $show: boolean }>`
+  display: ${props => props.$show ? 'flex' : 'none'};
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex: 1;
+  padding: 40px 20px;
+`;
+
+const WelcomeTitle = styled.h1`
+  font-size: 36px;
+  color: ${theme.primary};
+  margin: 0 0 16px 0;
+  font-weight: 700;
+`;
+
+const WelcomeSubtitle = styled.p`
+  font-size: 18px;
+  color: ${theme.textSecondary};
+  margin: 0 0 12px 0;
+  max-width: 600px;
+`;
+
+const WelcomeText = styled.p`
+  font-size: 16px;
+  color: ${theme.textPrimary};
+  margin: 0 0 32px 0;
+  max-width: 600px;
+`;
+
+const GreetingBox = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: ${theme.white};
+  padding: 20px 32px;
+  border-radius: 50px;
+  box-shadow: 0 4px 12px rgba(0, 106, 77, 0.15);
+  margin-bottom: 40px;
+`;
+
+const GreetingIcon = styled.div`
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${theme.white};
+`;
+
+const GreetingText = styled.span`
+  font-size: 20px;
+  color: ${theme.textPrimary};
+  font-weight: 500;
+`;
+
+const SuggestionsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  width: 100%;
+  max-width: 800px;
+  margin-top: 20px;
+`;
+
+const SuggestionCard = styled.button`
+  background: ${theme.white};
+  border: 2px solid ${theme.border};
+  padding: 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  
+  &:hover {
+    border-color: ${theme.primary};
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 106, 77, 0.15);
+  }
+`;
+
+const SuggestionIcon = styled.div`
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${theme.white};
+  flex-shrink: 0;
+`;
+
+const SuggestionText = styled.div`
+  flex: 1;
+  
+  h4 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    color: ${theme.textPrimary};
+    font-weight: 600;
+  }
+  
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: ${theme.textSecondary};
+  }
+`;
+
+const ChatHistory = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 0;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: ${theme.border};
+    border-radius: 3px;
+  }
+`;
+
+const InputContainer = styled.div<{ $showStartNew?: boolean }>`
+  background: ${theme.white};
+  border-radius: 12px;
+  padding: ${props => props.$showStartNew ? '12px' : '16px'};
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  margin-top: auto;
+`;
+
+const StartNewChat = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: ${theme.primary};
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  
+  &:hover {
+    color: ${theme.accent};
+  }
+`;
+
+const TextAreaWrapper = styled.div`
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+`;
+
+const TextArea = styled.textarea`
+  flex: 1;
+  min-height: 50px;
+  max-height: 150px;
+  padding: 14px 16px;
+  border: 2px solid ${theme.border};
+  border-radius: 10px;
+  font-size: 15px;
+  resize: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  
+  &:focus {
+    outline: none;
+    border-color: ${theme.primary};
+  }
+  
+  &::placeholder {
+    color: #a0aec0;
+  }
+`;
+
+const SendButton = styled.button`
+  background: linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%);
+  color: ${theme.white};
+  border: none;
+  padding: 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  width: 50px;
+  height: 50px;
+  
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 106, 77, 0.3);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+`;
+
+const MessageRow = styled.div<{ $align: 'left' | 'right' }>`
+  display: flex;
+  justify-content: ${props => props.$align === 'right' ? 'flex-end' : 'flex-start'};
+  margin-bottom: 20px;
+`;
+
+const MessageBubble = styled.div<{ $type: 'user' | 'ai' }>`
+  background: ${props => props.$type === 'user' 
+    ? `linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%)` 
+    : theme.white};
+  color: ${props => props.$type === 'user' ? theme.white : theme.textPrimary};
+  padding: 16px 20px;
+  border-radius: 16px;
+  max-width: 70%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  position: relative;
+  line-height: 1.6;
+  font-size: 15px;
+`;
+
+const MessageActions = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+`;
+
+const IconButton = styled.button<{ $user?: boolean }>`
+  background: ${props => props.$user ? 'rgba(255,255,255,0.2)' : '#f7fafc'};
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+  color: ${props => props.$user ? theme.white : theme.textSecondary};
+  
+  &:hover {
+    background: ${props => props.$user ? 'rgba(255,255,255,0.3)' : '#edf2f7'};
+    transform: scale(1.1);
+  }
+`;
+
+const ThinkingLoader = styled.div`
+  color: ${theme.textSecondary};
+  font-style: italic;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  &::after {
+    content: '...';
+    animation: dots 1.5s infinite;
+  }
+  
+  @keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+  }
+`;
+
+// Table Components
+const PageHeader = styled.div`
+  margin-bottom: 32px;
+`;
+
+const PageTitle = styled.h2`
+  font-size: 32px;
+  margin: 0 0 8px 0;
+  color: ${theme.primary};
+  font-weight: 700;
+`;
+
+const PageSubtitle = styled.p`
+  color: ${theme.textSecondary};
+  margin: 0;
+  font-size: 16px;
+`;
+
+const TableContainer = styled.div`
+  background: ${theme.white};
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  overflow: hidden;
+`;
+
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+`;
+
+const Th = styled.th`
+  background: #f7fafc;
+  color: ${theme.textPrimary};
+  padding: 16px 20px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid ${theme.border};
+`;
+
+const Td = styled.td`
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  color: ${theme.textSecondary};
+  font-size: 14px;
+`;
+
+const Tr = styled.tr`
+  transition: background 0.2s;
+  
+  &:hover {
+    background: #f7fafc;
+  }
+  
+  &:last-child td {
+    border-bottom: none;
+  }
+`;
+
+const TopBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+`;
+
+const Button = styled.button`
+  background: linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%);
+  color: ${theme.white};
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 106, 77, 0.4);
+  }
+`;
+
+const ActionButtons = styled.div`
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+`;
+
+const SmallButton = styled.button<{ $variant?: string }>`
+  background: ${props => {
+    if (props.$variant === 'danger') return theme.error;
+    if (props.$variant === 'warning') return theme.warning;
+    if (props.$variant === 'success') return theme.success;
+    if (props.$variant === 'info') return theme.info;
+    return theme.primary;
+  }};
+  color: ${theme.white};
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  transition: all 0.2s;
+  
+  &:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+`;
+
+const StatusBadge = styled.span<{ $status: string }>`
+  background: ${props => {
+    if (props.$status === 'Active') return `linear-gradient(135deg, ${theme.success} 0%, #2E7D32 100%)`;
+    if (props.$status === 'Paused') return `linear-gradient(135deg, ${theme.warning} 0%, #E64A19 100%)`;
+    if (props.$status === 'Testing') return `linear-gradient(135deg, ${theme.info} 0%, #1565C0 100%)`;
+    return `linear-gradient(135deg, ${theme.error} 0%, #C62828 100%)`;
+  }};
+  color: ${theme.white};
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+`;
+
+// Sidebar Component
+interface SidebarProps {
+  isOpen: boolean;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
+  const location = useLocation();
+  const [expandedMenus, setExpandedMenus] = useState({
+    envoy: true,
+    cortex: false,
+    tools: false,
+    atlas: false
+  });
+
+  const toggleMenu = (menu: keyof typeof expandedMenus) => {
+    setExpandedMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
+  };
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
-    <iframe src="http://34.116.138.85" />
+    <SidebarContainer $open={isOpen}>
+      <MenuSection>
+        <MenuTitle onClick={() => toggleMenu('envoy')}>
+          <span>Envoy</span>
+          {expandedMenus.envoy ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+        </MenuTitle>
+        <SubMenu $open={expandedMenus.envoy}>
+          <StyledLink to="/use-cases">
+            <SubMenuItem $active={isActive('/use-cases')}>
+              Use Cases
+            </SubMenuItem>
+          </StyledLink>
+          <StyledLink to="/agents">
+            <SubMenuItem $active={isActive('/agents')}>
+              AI Agents
+            </SubMenuItem>
+          </StyledLink>
+          <SubMenuItem>Monitor</SubMenuItem>
+        </SubMenu>
+      </MenuSection>
+      
+      <MenuSection>
+        <MenuTitle onClick={() => toggleMenu('cortex')}>
+          <span>Cortex (LLM)</span>
+          {expandedMenus.cortex ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+        </MenuTitle>
+        <SubMenu $open={expandedMenus.cortex}>
+          <SubMenuItem>View</SubMenuItem>
+          <SubMenuItem>Evaluate</SubMenuItem>
+          <SubMenuItem>Monitor</SubMenuItem>
+          <SubMenuItem>Guardrails</SubMenuItem>
+        </SubMenu>
+      </MenuSection>
+      
+      <MenuSection>
+        <MenuTitle onClick={() => toggleMenu('tools')}>
+          <span>Tools</span>
+          {expandedMenus.tools ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+        </MenuTitle>
+        <SubMenu $open={expandedMenus.tools}>
+          <SubMenuItem>View</SubMenuItem>
+        </SubMenu>
+      </MenuSection>
+      
+      <MenuSection>
+        <MenuTitle onClick={() => toggleMenu('atlas')}>
+          <span>Atlas (ML)</span>
+          {expandedMenus.atlas ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+        </MenuTitle>
+        <SubMenu $open={expandedMenus.atlas}>
+          <SubMenuItem>Use Cases</SubMenuItem>
+          <SubMenuItem>Model</SubMenuItem>
+          <SubMenuItem>Monitor</SubMenuItem>
+        </SubMenu>
+      </MenuSection>
+    </SidebarContainer>
   );
 };
 
-export default IframeComponent;
+// Chat Page Component
+const ChatPage: React.FC = () => {
+  const [chatInput, setChatInput] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [showWelcome, setShowWelcome] = useState(true);
 
+  const suggestions = [
+    { icon: <Sparkles size={20} />, title: 'Create Use Case', text: 'Build a new AI use case' },
+    { icon: <MessageSquare size={20} />, title: 'Analyze Data', text: 'Get insights from your data' },
+    { icon: <Eye size={20} />, title: 'Monitor Agents', text: 'Track agent performance' },
+    { icon: <CheckCircle size={20} />, title: 'Generate Report', text: 'Create detailed reports' }
+  ];
+
+  const handleSendMessage = () => {
+    if (chatInput.trim()) {
+      const newMessage: Message = {
+        id: messages.length + 1,
+        type: 'user',
+        content: chatInput,
+        timestamp: new Date()
+      };
+      
+      setMessages([...messages, newMessage]);
+      setChatInput('');
+      setShowWelcome(false);
+      
+      setTimeout(() => {
+        const aiResponse: Message = {
+          id: messages.length + 2,
+          type: 'ai',
+          content: 'I understand your question. Let me help you with that. Here are some comprehensive recommendations based on your query and the best practices in the industry.',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, aiResponse]);
+      }, 1000);
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setChatInput(suggestion);
+  };
+
+  const handleStartNewChat = () => {
+    setMessages([]);
+    setShowWelcome(true);
+    setChatInput('');
+  };
+
+  return (
+    <ChatContainer>
+      <WelcomeSection $show={showWelcome}>
+        <WelcomeTitle>Welcome back to Agentic Portal</WelcomeTitle>
+        <WelcomeSubtitle>
+          Your intelligent workspace for managing AI agents and use cases
+        </WelcomeSubtitle>
+        <WelcomeText>
+          Streamline your workflow with powerful AI-driven automation
+        </WelcomeText>
+        
+        <GreetingBox>
+          <GreetingIcon>
+            <MessageSquare size={24} />
+          </GreetingIcon>
+          <GreetingText>Hi, how can I help?</GreetingText>
+        </GreetingBox>
+        
+        <SuggestionsGrid>
+          {suggestions.map((sug, idx) => (
+            <SuggestionCard key={idx} onClick={() => handleSuggestionClick(sug.title)}>
+              <SuggestionIcon>{sug.icon}</SuggestionIcon>
+              <SuggestionText>
+                <h4>{sug.title}</h4>
+                <p>{sug.text}</p>
+              </SuggestionText>
+            </SuggestionCard>
+          ))}
+        </SuggestionsGrid>
+      </WelcomeSection>
+      
+      {!showWelcome && (
+        <ChatHistory>
+          {messages.map((msg) => (
+            <MessageRow key={msg.id} $align={msg.type === 'user' ? 'right' : 'left'}>
+              <MessageBubble $type={msg.type}>
+                {msg.type === 'ai' && messages[messages.length - 1].id === msg.id && (
+                  <ThinkingLoader>AI is thinking</ThinkingLoader>
+                )}
+                {msg.content}
+                <MessageActions>
+                  {msg.type === 'user' ? (
+                    <IconButton $user>
+                      <Edit2 size={14} />
+                    </IconButton>
+                  ) : (
+                    <>
+                      <IconButton title="Copy">
+                        <Copy size={14} />
+                      </IconButton>
+                      <IconButton title="Regenerate">
+                        <RefreshCw size={14} />
+                      </IconButton>
+                    </>
+                  )}
+                </MessageActions>
+              </MessageBubble>
+            </MessageRow>
+          ))}
+        </ChatHistory>
+      )}
+      
+      <InputContainer $showStartNew={!showWelcome}>
+        {!showWelcome && (
+          <StartNewChat onClick={handleStartNewChat}>
+            <Sparkles size={16} />
+            Start New Chat
+          </StartNewChat>
+        )}
+        <TextAreaWrapper>
+          <TextArea
+            placeholder="Type your message here..."
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+          />
+          <SendButton onClick={handleSendMessage} disabled={!chatInput.trim()}>
+            <Send size={20} />
+          </SendButton>
+        </TextAreaWrapper>
+      </InputContainer>
+    </ChatContainer>
+  );
+};
+
+// Use Cases Page Component
+const UseCasesPage: React.FC = () => {
+  const [useCases] = useState<UseCase[]>([
+    { id: 1, title: 'Customer Support Bot', status: 'Active', agents: 3 },
+    { id: 2, title: 'Sales Assistant', status: 'Paused', agents: 2 },
+    { id: 3, title: 'HR Automation', status: 'Active', agents: 4 },
+    { id: 4, title: 'Data Analyzer', status: 'Testing', agents: 1 },
+    { id: 5, title: 'Content Generator', status: 'Active', agents: 2 },
+  ]);
+
+  return (
+    <>
+      <TopBar>
+        <PageHeader>
+          <PageTitle>Use Cases</PageTitle>
+          <PageSubtitle>Manage your AI-powered use cases</PageSubtitle>
+        </PageHeader>
+        <Button>+ Add New Use Case</Button>
+      </TopBar>
+      
+      <TableContainer>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Title</Th>
+              <Th>Status</Th>
+              <Th>Agents</Th>
+              <Th>Actions</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {useCases.map(uc => (
+              <Tr key={uc.id}>
+                <Td><strong>{uc.title}</strong></Td>
+                <Td><StatusBadge $status={uc.status}>{uc.status}</StatusBadge></Td>
+                <Td>{uc.agents} agents</Td>
+                <Td>
+                  <ActionButtons>
+                    <SmallButton $variant="danger" title="Delete">
+                      <Trash2 size={14} />
+                    </SmallButton>
+                    <SmallButton title="View">
+                      <Eye size={14} />
+                    </SmallButton>
+                    <SmallButton $variant="info" title="Monitor">
+                      <Monitor size={14} />
+                    </SmallButton>
+                    <SmallButton $variant="warning" title="Try">
+                      <Play size={14} />
+                    </SmallButton>
+                    <SmallButton $variant="warning" title="Pause">
+                      <Pause size={14} />
+                    </SmallButton>
+                    <SmallButton $variant="success" title="Publish">
+                      <CheckCircle size={14} />
+                    </SmallButton>
+                  </ActionButtons>
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      </TableContainer>
+    </>
+  );
+};
+
+// Agents Page Component
+const AgentsPage: React.FC = () => {
+  const [agents] = useState<Agent[]>([
+    { id: 1, title: 'Support Agent V1', type: 'Orchestra', version: '1.2.0' },
+    { id: 2, title: 'Sales Agent Pro', type: 'Worker', version: '2.0.1' },
+    { id: 3, title: 'HR Helper', type: 'Orchestra', version: '1.5.3' },
+    { id: 4, title: 'Analytics Agent', type: 'Worker', version: '1.0.0' },
+    { id: 5, title: 'Content Writer', type: 'Orchestra', version: '2.1.0' },
+  ]);
+
+  return (
+    <>
+      <TopBar>
+        <PageHeader>
+          <PageTitle>AI Agents</PageTitle>
+          <PageSubtitle>Manage your intelligent agents</PageSubtitle>
+        </PageHeader>
+        <Button>+ Add New Agent</Button>
+      </TopBar>
+      
+      <TableContainer>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Title</Th>
+              <Th>Type</Th>
+              <Th>Version</Th>
+              <Th>Actions</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {agents.map(agent => (
+              <Tr key={agent.id}>
+                <Td><strong>{agent.title}</strong></Td>
+                <Td>{agent.type}</Td>
+                <Td><StatusBadge $status="Active">v{agent.version}</StatusBadge></Td>
+                <Td>
+                  <ActionButtons>
+                    <SmallButton title="View Details">
+                      <Eye size={14} /> View
+                    </SmallButton>
+                    <SmallButton $variant="success" title="Add to Use Case">
+                      + Add to Use Case
+                    </SmallButton>
+                  </ActionButtons>
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      </TableContainer>
+    </>
+  );
+};
+
+// Layout Component
+const Layout: React.FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  return (
+    <AppContainer>
+      <Header $sidebarOpen={sidebarOpen}>
+        <MenuButton onClick={() => setSidebarOpen(!sidebarOpen)}>
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </MenuButton>
+        <Logo>Lloyds Agentic Portal</Logo>
+      </Header>
+      
+      <Sidebar isOpen={sidebarOpen} />
+      
+      <MainContent $sidebarOpen={sidebarOpen}>
+        <Routes>
+          <Route path="/" element={<ChatPage />} />
+          <Route path="/use-cases" element={<UseCasesPage />} />
+          <Route path="/agents" element={<AgentsPage />} />
+        </Routes>
+      </MainContent>
+    </AppContainer>
+  );
+};
+
+// Main App Component
+const App: React.FC = () => {
+  return (
+    <Router>
+      <Layout />
+    </Router>
+  );
+};
+
+export default App;
