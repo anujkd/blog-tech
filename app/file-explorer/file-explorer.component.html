@@ -1,0 +1,30 @@
+<div class="container">
+    <div class="card">
+        <h2>GitHub File Explorer</h2>
+
+        <div class="input-group">
+            <input type="text" [(ngModel)]="repoUrl" placeholder="Enter GitHub Repository URL" [disabled]="loading">
+            <button (click)="fetchFiles()" [disabled]="loading">
+                {{ loading ? 'Fetching...' : 'Fetch Files' }}
+            </button>
+        </div>
+
+        <div *ngIf="error" class="error-message">
+            {{ error }}
+        </div>
+
+        <div class="file-list-container" *ngIf="files.length > 0">
+            <h3>Files ({{ files.length }})</h3>
+            <ul class="file-list">
+                <li *ngFor="let file of files" class="file-item">
+                    <span class="file-icon">📄</span>
+                    <span class="file-name">{{ file }}</span>
+                </li>
+            </ul>
+        </div>
+
+        <div *ngIf="!loading && !error && files.length === 0" class="empty-state">
+            Enter a URL and click Fetch to see files.
+        </div>
+    </div>
+</div>
