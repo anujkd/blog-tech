@@ -1,984 +1,179 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import styled from 'styled-components';
-import { ChevronDown, ChevronRight, Menu, X, Edit2, Copy, RefreshCw, Trash2, Eye, Play, Pause, Upload, ChevronLeft, Send, Monitor, CheckCircle, Sparkles, MessageSquare } from 'lucide-react';
-
-// Lloyds Bank Theme Colors
-const theme = {
-  primary: '#006A4D',
-  primaryDark: '#004D38',
-  primaryLight: '#00A878',
-  secondary: '#00494D',
-  accent: '#009639',
-  white: '#FFFFFF',
-  background: '#F5F5F5',
-  textPrimary: '#333333',
-  textSecondary: '#666666',
-  border: '#E0E0E0',
-  error: '#D32F2F',
-  warning: '#F57C00',
-  success: '#388E3C',
-  info: '#1976D2'
-};
-
-// Types
-interface UseCase {
-  id: number;
-  title: string;
-  status: 'Active' | 'Paused' | 'Testing';
-  agents: number;
-}
-
-interface Agent {
-  id: number;
-  title: string;
-  type: 'Orchestra' | 'Worker';
-  version: string;
-}
-
-interface Message {
-  id: number;
-  type: 'user' | 'ai';
-  content: string;
-  timestamp: Date;
-}
-
-// Styled Components - Layout
-const AppContainer = styled.div`
-  display: flex;
-  height: 100vh;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: ${theme.background};
-`;
-
-const Header = styled.header<{ $sidebarOpen: boolean }>`
-  position: fixed;
-  top: 0;
-  left: ${props => props.$sidebarOpen ? '280px' : '0'};
-  right: 0;
-  height: 70px;
-  background: ${theme.primary};
-  color: ${theme.white};
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
-  z-index: 100;
-  transition: left 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-`;
-
-const MenuButton = styled.button`
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: ${theme.white};
-  cursor: pointer;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  margin-right: 20px;
-  border-radius: 8px;
-  transition: background 0.2s;
-  
-  &:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-`;
-
-const Logo = styled.h1`
-  font-size: 24px;
-  margin: 0;
-  font-weight: 600;
-  letter-spacing: -0.5px;
-`;
-
-const SidebarContainer = styled.aside<{ $open: boolean }>`
-  position: fixed;
-  left: ${props => props.$open ? '0' : '-280px'};
-  top: 70px;
-  width: 280px;
-  height: calc(100vh - 70px);
-  background: ${theme.secondary};
-  color: ${theme.white};
-  transition: left 0.3s ease;
-  overflow-y: auto;
-  z-index: 99;
-  box-shadow: 2px 0 12px rgba(0,0,0,0.1);
-  
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: ${theme.primaryDark};
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${theme.primary};
-    border-radius: 3px;
-  }
-`;
-
-const MenuSection = styled.div`
-  margin: 8px 0;
-`;
-
-const MenuTitle = styled.div`
-  padding: 14px 20px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  transition: all 0.2s;
-  color: #e2e8f0;
-  font-size: 15px;
-  
-  &:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: ${theme.white};
-  }
-`;
-
-const SubMenu = styled.div<{ $open: boolean }>`
-  max-height: ${props => props.$open ? '500px' : '0'};
-  overflow: hidden;
-  transition: max-height 0.3s ease;
-  background: rgba(0, 0, 0, 0.2);
-`;
-
-const StyledLink = styled(Link)`
-  text-decoration: none;
-  color: inherit;
-`;
-
-const SubMenuItem = styled.div<{ $active?: boolean }>`
-  padding: 12px 20px 12px 40px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 14px;
-  color: #cbd5e0;
-  
-  &:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: ${theme.white};
-    padding-left: 44px;
-  }
-  
-  ${props => props.$active && `
-    background: ${theme.primaryLight};
-    color: ${theme.white};
-    border-left: 3px solid ${theme.accent};
-    font-weight: 500;
-  `}
-`;
-
-const MainContent = styled.main<{ $sidebarOpen: boolean }>`
-  margin-left: ${props => props.$sidebarOpen ? '280px' : '0'};
-  margin-top: 70px;
-  padding: 32px;
-  width: 100%;
-  transition: margin-left 0.3s ease;
-  min-height: calc(100vh - 70px);
-`;
-
-// Chat Styled Components
-const ChatContainer = styled.div`
-  max-width: 1100px;
-  margin: 0 auto;
-  height: calc(100vh - 134px);
-  display: flex;
-  flex-direction: column;
-`;
-
-const WelcomeSection = styled.div<{ $show: boolean }>`
-  display: ${props => props.$show ? 'flex' : 'none'};
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  flex: 1;
-  padding: 40px 20px;
-`;
-
-const WelcomeTitle = styled.h1`
-  font-size: 36px;
-  color: ${theme.primary};
-  margin: 0 0 16px 0;
-  font-weight: 700;
-`;
-
-const WelcomeSubtitle = styled.p`
-  font-size: 18px;
-  color: ${theme.textSecondary};
-  margin: 0 0 12px 0;
-  max-width: 600px;
-`;
-
-const WelcomeText = styled.p`
-  font-size: 16px;
-  color: ${theme.textPrimary};
-  margin: 0 0 32px 0;
-  max-width: 600px;
-`;
-
-const GreetingBox = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: ${theme.white};
-  padding: 20px 32px;
-  border-radius: 50px;
-  box-shadow: 0 4px 12px rgba(0, 106, 77, 0.15);
-  margin-bottom: 40px;
-`;
-
-const GreetingIcon = styled.div`
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: ${theme.white};
-`;
-
-const GreetingText = styled.span`
-  font-size: 20px;
-  color: ${theme.textPrimary};
-  font-weight: 500;
-`;
-
-const SuggestionsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 16px;
-  width: 100%;
-  max-width: 800px;
-  margin-top: 20px;
-`;
-
-const SuggestionCard = styled.button`
-  background: ${theme.white};
-  border: 2px solid ${theme.border};
-  padding: 20px;
-  border-radius: 12px;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.2s;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  
-  &:hover {
-    border-color: ${theme.primary};
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 106, 77, 0.15);
-  }
-`;
-
-const SuggestionIcon = styled.div`
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: ${theme.white};
-  flex-shrink: 0;
-`;
-
-const SuggestionText = styled.div`
-  flex: 1;
-  
-  h4 {
-    margin: 0 0 4px 0;
-    font-size: 15px;
-    color: ${theme.textPrimary};
-    font-weight: 600;
-  }
-  
-  p {
-    margin: 0;
-    font-size: 13px;
-    color: ${theme.textSecondary};
-  }
-`;
-
-const ChatHistory = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px 0;
-  
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${theme.border};
-    border-radius: 3px;
-  }
-`;
-
-const InputContainer = styled.div<{ $showStartNew?: boolean }>`
-  background: ${theme.white};
-  border-radius: 12px;
-  padding: ${props => props.$showStartNew ? '12px' : '16px'};
-  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-  margin-top: auto;
-`;
-
-const StartNewChat = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: ${theme.primary};
-  font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 12px;
-  cursor: pointer;
-  
-  &:hover {
-    color: ${theme.accent};
-  }
-`;
-
-const TextAreaWrapper = styled.div`
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-`;
-
-const TextArea = styled.textarea`
-  flex: 1;
-  min-height: 50px;
-  max-height: 150px;
-  padding: 14px 16px;
-  border: 2px solid ${theme.border};
-  border-radius: 10px;
-  font-size: 15px;
-  resize: none;
-  font-family: inherit;
-  transition: border-color 0.2s;
-  
-  &:focus {
-    outline: none;
-    border-color: ${theme.primary};
-  }
-  
-  &::placeholder {
-    color: #a0aec0;
-  }
-`;
-
-const SendButton = styled.button`
-  background: linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%);
-  color: ${theme.white};
-  border: none;
-  padding: 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  flex-shrink: 0;
-  width: 50px;
-  height: 50px;
-  
-  &:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0, 106, 77, 0.3);
-  }
-  
-  &:active {
-    transform: scale(0.95);
-  }
-  
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-  }
-`;
-
-const MessageRow = styled.div<{ $align: 'left' | 'right' }>`
-  display: flex;
-  justify-content: ${props => props.$align === 'right' ? 'flex-end' : 'flex-start'};
-  margin-bottom: 20px;
-`;
-
-const MessageBubble = styled.div<{ $type: 'user' | 'ai' }>`
-  background: ${props => props.$type === 'user' 
-    ? `linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%)` 
-    : theme.white};
-  color: ${props => props.$type === 'user' ? theme.white : theme.textPrimary};
-  padding: 16px 20px;
-  border-radius: 16px;
-  max-width: 70%;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  position: relative;
-  line-height: 1.6;
-  font-size: 15px;
-`;
-
-const MessageActions = styled.div`
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-`;
-
-const IconButton = styled.button<{ $user?: boolean }>`
-  background: ${props => props.$user ? 'rgba(255,255,255,0.2)' : '#f7fafc'};
-  border: none;
-  padding: 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: all 0.2s;
-  color: ${props => props.$user ? theme.white : theme.textSecondary};
-  
-  &:hover {
-    background: ${props => props.$user ? 'rgba(255,255,255,0.3)' : '#edf2f7'};
-    transform: scale(1.1);
-  }
-`;
-
-const ThinkingLoader = styled.div`
-  color: ${theme.textSecondary};
-  font-style: italic;
-  padding: 8px 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  
-  &::after {
-    content: '...';
-    animation: dots 1.5s infinite;
-  }
-  
-  @keyframes dots {
-    0%, 20% { content: '.'; }
-    40% { content: '..'; }
-    60%, 100% { content: '...'; }
-  }
-`;
-
-// Table Components
-const PageHeader = styled.div`
-  margin-bottom: 32px;
-`;
-
-const PageTitle = styled.h2`
-  font-size: 32px;
-  margin: 0 0 8px 0;
-  color: ${theme.primary};
-  font-weight: 700;
-`;
-
-const PageSubtitle = styled.p`
-  color: ${theme.textSecondary};
-  margin: 0;
-  font-size: 16px;
-`;
-
-const TableContainer = styled.div`
-  background: ${theme.white};
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  overflow: hidden;
-`;
-
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-`;
-
-const Th = styled.th`
-  background: #f7fafc;
-  color: ${theme.textPrimary};
-  padding: 16px 20px;
-  text-align: left;
-  font-weight: 600;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 2px solid ${theme.border};
-`;
-
-const Td = styled.td`
-  padding: 16px 20px;
-  border-bottom: 1px solid #f0f0f0;
-  color: ${theme.textSecondary};
-  font-size: 14px;
-`;
-
-const Tr = styled.tr`
-  transition: background 0.2s;
-  
-  &:hover {
-    background: #f7fafc;
-  }
-  
-  &:last-child td {
-    border-bottom: none;
-  }
-`;
-
-const TopBar = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-`;
-
-const Button = styled.button`
-  background: linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%);
-  color: ${theme.white};
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 106, 77, 0.4);
-  }
-`;
-
-const ActionButtons = styled.div`
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-`;
-
-const SmallButton = styled.button<{ $variant?: string }>`
-  background: ${props => {
-    if (props.$variant === 'danger') return theme.error;
-    if (props.$variant === 'warning') return theme.warning;
-    if (props.$variant === 'success') return theme.success;
-    if (props.$variant === 'info') return theme.info;
-    return theme.primary;
-  }};
-  color: ${theme.white};
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 500;
-  transition: all 0.2s;
-  
-  &:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
-  }
-`;
-
-const StatusBadge = styled.span<{ $status: string }>`
-  background: ${props => {
-    if (props.$status === 'Active') return `linear-gradient(135deg, ${theme.success} 0%, #2E7D32 100%)`;
-    if (props.$status === 'Paused') return `linear-gradient(135deg, ${theme.warning} 0%, #E64A19 100%)`;
-    if (props.$status === 'Testing') return `linear-gradient(135deg, ${theme.info} 0%, #1565C0 100%)`;
-    return `linear-gradient(135deg, ${theme.error} 0%, #C62828 100%)`;
-  }};
-  color: ${theme.white};
-  padding: 6px 14px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 600;
-  display: inline-block;
-`;
-
-// Sidebar Component
-interface SidebarProps {
-  isOpen: boolean;
-}
-
-const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
-  const location = useLocation();
-  const [expandedMenus, setExpandedMenus] = useState({
-    envoy: true,
-    cortex: false,
-    tools: false,
-    atlas: false
-  });
-
-  const toggleMenu = (menu: keyof typeof expandedMenus) => {
-    setExpandedMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
-  };
-
-  const isActive = (path: string) => location.pathname === path;
-
-  return (
-    <SidebarContainer $open={isOpen}>
-      <MenuSection>
-        <MenuTitle onClick={() => toggleMenu('envoy')}>
-          <span>Envoy</span>
-          {expandedMenus.envoy ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-        </MenuTitle>
-        <SubMenu $open={expandedMenus.envoy}>
-          <StyledLink to="/use-cases">
-            <SubMenuItem $active={isActive('/use-cases')}>
-              Use Cases
-            </SubMenuItem>
-          </StyledLink>
-          <StyledLink to="/agents">
-            <SubMenuItem $active={isActive('/agents')}>
-              AI Agents
-            </SubMenuItem>
-          </StyledLink>
-          <SubMenuItem>Monitor</SubMenuItem>
-        </SubMenu>
-      </MenuSection>
-      
-      <MenuSection>
-        <MenuTitle onClick={() => toggleMenu('cortex')}>
-          <span>Cortex (LLM)</span>
-          {expandedMenus.cortex ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-        </MenuTitle>
-        <SubMenu $open={expandedMenus.cortex}>
-          <SubMenuItem>View</SubMenuItem>
-          <SubMenuItem>Evaluate</SubMenuItem>
-          <SubMenuItem>Monitor</SubMenuItem>
-          <SubMenuItem>Guardrails</SubMenuItem>
-        </SubMenu>
-      </MenuSection>
-      
-      <MenuSection>
-        <MenuTitle onClick={() => toggleMenu('tools')}>
-          <span>Tools</span>
-          {expandedMenus.tools ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-        </MenuTitle>
-        <SubMenu $open={expandedMenus.tools}>
-          <SubMenuItem>View</SubMenuItem>
-        </SubMenu>
-      </MenuSection>
-      
-      <MenuSection>
-        <MenuTitle onClick={() => toggleMenu('atlas')}>
-          <span>Atlas (ML)</span>
-          {expandedMenus.atlas ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-        </MenuTitle>
-        <SubMenu $open={expandedMenus.atlas}>
-          <SubMenuItem>Use Cases</SubMenuItem>
-          <SubMenuItem>Model</SubMenuItem>
-          <SubMenuItem>Monitor</SubMenuItem>
-        </SubMenu>
-      </MenuSection>
-    </SidebarContainer>
-  );
-};
-
-// Chat Page Component
-const ChatPage: React.FC = () => {
-  const [chatInput, setChatInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [showWelcome, setShowWelcome] = useState(true);
-
-  const suggestions = [
-    { icon: <Sparkles size={20} />, title: 'Create Use Case', text: 'Build a new AI use case' },
-    { icon: <MessageSquare size={20} />, title: 'Analyze Data', text: 'Get insights from your data' },
-    { icon: <Eye size={20} />, title: 'Monitor Agents', text: 'Track agent performance' },
-    { icon: <CheckCircle size={20} />, title: 'Generate Report', text: 'Create detailed reports' }
-  ];
-
-  const handleSendMessage = () => {
-    if (chatInput.trim()) {
-      const newMessage: Message = {
-        id: messages.length + 1,
-        type: 'user',
-        content: chatInput,
-        timestamp: new Date()
-      };
-      
-      setMessages([...messages, newMessage]);
-      setChatInput('');
-      setShowWelcome(false);
-      
-      setTimeout(() => {
-        const aiResponse: Message = {
-          id: messages.length + 2,
-          type: 'ai',
-          content: 'I understand your question. Let me help you with that. Here are some comprehensive recommendations based on your query and the best practices in the industry.',
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, aiResponse]);
-      }, 1000);
-    }
-  };
-
-  const handleSuggestionClick = (suggestion: string) => {
-    setChatInput(suggestion);
-  };
-
-  const handleStartNewChat = () => {
-    setMessages([]);
-    setShowWelcome(true);
-    setChatInput('');
-  };
-
-  return (
-    <ChatContainer>
-      <WelcomeSection $show={showWelcome}>
-        <WelcomeTitle>Welcome back to Agentic Portal</WelcomeTitle>
-        <WelcomeSubtitle>
-          Your intelligent workspace for managing AI agents and use cases
-        </WelcomeSubtitle>
-        <WelcomeText>
-          Streamline your workflow with powerful AI-driven automation
-        </WelcomeText>
-        
-        <GreetingBox>
-          <GreetingIcon>
-            <MessageSquare size={24} />
-          </GreetingIcon>
-          <GreetingText>Hi, how can I help?</GreetingText>
-        </GreetingBox>
-        
-        <SuggestionsGrid>
-          {suggestions.map((sug, idx) => (
-            <SuggestionCard key={idx} onClick={() => handleSuggestionClick(sug.title)}>
-              <SuggestionIcon>{sug.icon}</SuggestionIcon>
-              <SuggestionText>
-                <h4>{sug.title}</h4>
-                <p>{sug.text}</p>
-              </SuggestionText>
-            </SuggestionCard>
-          ))}
-        </SuggestionsGrid>
-      </WelcomeSection>
-      
-      {!showWelcome && (
-        <ChatHistory>
-          {messages.map((msg) => (
-            <MessageRow key={msg.id} $align={msg.type === 'user' ? 'right' : 'left'}>
-              <MessageBubble $type={msg.type}>
-                {msg.type === 'ai' && messages[messages.length - 1].id === msg.id && (
-                  <ThinkingLoader>AI is thinking</ThinkingLoader>
-                )}
-                {msg.content}
-                <MessageActions>
-                  {msg.type === 'user' ? (
-                    <IconButton $user>
-                      <Edit2 size={14} />
-                    </IconButton>
-                  ) : (
-                    <>
-                      <IconButton title="Copy">
-                        <Copy size={14} />
-                      </IconButton>
-                      <IconButton title="Regenerate">
-                        <RefreshCw size={14} />
-                      </IconButton>
-                    </>
-                  )}
-                </MessageActions>
-              </MessageBubble>
-            </MessageRow>
-          ))}
-        </ChatHistory>
-      )}
-      
-      <InputContainer $showStartNew={!showWelcome}>
-        {!showWelcome && (
-          <StartNewChat onClick={handleStartNewChat}>
-            <Sparkles size={16} />
-            Start New Chat
-          </StartNewChat>
-        )}
-        <TextAreaWrapper>
-          <TextArea
-            placeholder="Type your message here..."
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
-          />
-          <SendButton onClick={handleSendMessage} disabled={!chatInput.trim()}>
-            <Send size={20} />
-          </SendButton>
-        </TextAreaWrapper>
-      </InputContainer>
-    </ChatContainer>
-  );
-};
-
-// Use Cases Page Component
-const UseCasesPage: React.FC = () => {
-  const [useCases] = useState<UseCase[]>([
-    { id: 1, title: 'Customer Support Bot', status: 'Active', agents: 3 },
-    { id: 2, title: 'Sales Assistant', status: 'Paused', agents: 2 },
-    { id: 3, title: 'HR Automation', status: 'Active', agents: 4 },
-    { id: 4, title: 'Data Analyzer', status: 'Testing', agents: 1 },
-    { id: 5, title: 'Content Generator', status: 'Active', agents: 2 },
-  ]);
-
-  return (
-    <>
-      <TopBar>
-        <PageHeader>
-          <PageTitle>Use Cases</PageTitle>
-          <PageSubtitle>Manage your AI-powered use cases</PageSubtitle>
-        </PageHeader>
-        <Button>+ Add New Use Case</Button>
-      </TopBar>
-      
-      <TableContainer>
-        <Table>
-          <thead>
-            <tr>
-              <Th>Title</Th>
-              <Th>Status</Th>
-              <Th>Agents</Th>
-              <Th>Actions</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {useCases.map(uc => (
-              <Tr key={uc.id}>
-                <Td><strong>{uc.title}</strong></Td>
-                <Td><StatusBadge $status={uc.status}>{uc.status}</StatusBadge></Td>
-                <Td>{uc.agents} agents</Td>
-                <Td>
-                  <ActionButtons>
-                    <SmallButton $variant="danger" title="Delete">
-                      <Trash2 size={14} />
-                    </SmallButton>
-                    <SmallButton title="View">
-                      <Eye size={14} />
-                    </SmallButton>
-                    <SmallButton $variant="info" title="Monitor">
-                      <Monitor size={14} />
-                    </SmallButton>
-                    <SmallButton $variant="warning" title="Try">
-                      <Play size={14} />
-                    </SmallButton>
-                    <SmallButton $variant="warning" title="Pause">
-                      <Pause size={14} />
-                    </SmallButton>
-                    <SmallButton $variant="success" title="Publish">
-                      <CheckCircle size={14} />
-                    </SmallButton>
-                  </ActionButtons>
-                </Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
-      </TableContainer>
-    </>
-  );
-};
-
-// Agents Page Component
-const AgentsPage: React.FC = () => {
-  const [agents] = useState<Agent[]>([
-    { id: 1, title: 'Support Agent V1', type: 'Orchestra', version: '1.2.0' },
-    { id: 2, title: 'Sales Agent Pro', type: 'Worker', version: '2.0.1' },
-    { id: 3, title: 'HR Helper', type: 'Orchestra', version: '1.5.3' },
-    { id: 4, title: 'Analytics Agent', type: 'Worker', version: '1.0.0' },
-    { id: 5, title: 'Content Writer', type: 'Orchestra', version: '2.1.0' },
-  ]);
-
-  return (
-    <>
-      <TopBar>
-        <PageHeader>
-          <PageTitle>AI Agents</PageTitle>
-          <PageSubtitle>Manage your intelligent agents</PageSubtitle>
-        </PageHeader>
-        <Button>+ Add New Agent</Button>
-      </TopBar>
-      
-      <TableContainer>
-        <Table>
-          <thead>
-            <tr>
-              <Th>Title</Th>
-              <Th>Type</Th>
-              <Th>Version</Th>
-              <Th>Actions</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {agents.map(agent => (
-              <Tr key={agent.id}>
-                <Td><strong>{agent.title}</strong></Td>
-                <Td>{agent.type}</Td>
-                <Td><StatusBadge $status="Active">v{agent.version}</StatusBadge></Td>
-                <Td>
-                  <ActionButtons>
-                    <SmallButton title="View Details">
-                      <Eye size={14} /> View
-                    </SmallButton>
-                    <SmallButton $variant="success" title="Add to Use Case">
-                      + Add to Use Case
-                    </SmallButton>
-                  </ActionButtons>
-                </Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
-      </TableContainer>
-    </>
-  );
-};
-
-// Layout Component
-const Layout: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  return (
-    <AppContainer>
-      <Header $sidebarOpen={sidebarOpen}>
-        <MenuButton onClick={() => setSidebarOpen(!sidebarOpen)}>
-          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-        </MenuButton>
-        <Logo>Lloyds Agentic Portal</Logo>
-      </Header>
-      
-      <Sidebar isOpen={sidebarOpen} />
-      
-      <MainContent $sidebarOpen={sidebarOpen}>
-        <Routes>
-          <Route path="/" element={<ChatPage />} />
-          <Route path="/use-cases" element={<UseCasesPage />} />
-          <Route path="/agents" element={<AgentsPage />} />
-        </Routes>
-      </MainContent>
-    </AppContainer>
-  );
-};
-
-// Main App Component
-const App: React.FC = () => {
-  return (
-    <Router>
-      <Layout />
-    </Router>
-  );
-};
-
-export default App;
+Create a modern enterprise Business Intelligence (BI) dashboard web application inspired by the attached design style. Focus only on the dashboard page and custom dashboard card management experience.
+
+Design Style:
+
+* Premium SaaS analytics platform
+* Banking-grade enterprise UI
+* Clean white interface with dark emerald green accents
+* Professional data visualization
+* Modern card-based layout
+* Subtle shadows, rounded corners, elegant spacing
+* Similar quality to Tableau, Power BI, Looker, Databricks, and Salesforce Analytics
+* High-fidelity Figma-quality product design
+* Desktop responsive dashboard
+
+Dashboard Layout:
+
+Left Navigation:
+
+* Dashboard
+* Analytics
+* Reports
+* Data Sources
+* Saved Views
+* AI Insights
+* Settings
+
+Top Header:
+
+* Global dashboard search
+* Date selector
+* Global filters
+* User profile
+* Primary CTA button: "Add Dashboard Card"
+
+Main Dashboard Area:
+
+The dashboard consists of fully customizable analytics cards arranged in a responsive grid layout.
+
+Every dashboard card includes:
+
+* Editable card title
+* Inline title edit icon
+* Delete card option
+* Duplicate card option
+* Move/Reorder card option
+* Resize card option
+* Configure card option
+* Refresh data option
+* Filter icon
+* More actions menu
+
+Examples of dashboard cards:
+
+* Revenue Overview
+* Customer Growth
+* Conversion Analysis
+* Product Performance
+* User Activity
+* Geographic Distribution
+* Marketing Attribution
+* Operational Metrics
+
+Card Visualization Types:
+
+* Table
+* Multi-Measure Table
+* Flow Diagram
+* Z-Score Analysis
+* Horizontal Bar Chart
+* Heatmap
+* Scatter Plot
+* Geographic Map
+* Sunburst Chart
+* KPI Card
+* Line Chart
+* Area Chart
+* Pie Chart
+
+Add New Dashboard Card Experience:
+
+When user clicks "Add Dashboard Card", open a large modern side panel or modal wizard.
+
+Step 1: Select Dataset
+
+* Search datasets
+* Dataset cards
+* Data preview table
+* Schema explorer
+* Recently used datasets
+
+Step 2: Configure Analytics
+Fields available:
+
+* Data Attribute Columns
+* Dimensions
+* Measures
+* Filters
+* Basis
+* Group By
+* Aggregations
+* Calculated Metrics
+
+Step 3: Choose Visualization
+
+Two prominent options:
+
+Option A: Generate Chart Using AI
+
+* Natural language prompt box
+* Example prompts
+* AI recommendations
+* AI-generated visualization preview
+
+Option B: Select Chart Type Manually
+
+Visualization gallery containing:
+
+* Table
+* Flow Diagram
+* Z-Score
+* Multi-Measure Table
+* Horizontal Bar
+* Heatmap
+* Scatter Plot
+* Geographical Map
+* Sunburst
+
+Each visualization type displays configuration options.
+
+Step 4: Visualization Configuration
+
+Every dashboard card supports configurable settings:
+
+* Editable Title
+* Description
+* Time Period Selector
+* Relative Date Range
+* Custom Date Range
+* Measure Selection
+* Basis Selection
+* Grouping Criteria
+* Dimension Selection
+* Aggregation Method
+* Sort Rules
+* Drill-down Rules
+* Conditional Formatting
+* Threshold Indicators
+* Custom Filters
+* Saved Filters
+* Default View Settings
+
+Filter Builder UI:
+
+* AND / OR conditions
+* Multi-select values
+* Dynamic parameters
+* Date filters
+* Numeric filters
+* Dimension filters
+
+Right-side live preview updates instantly while users configure the card.
+
+Dashboard Features:
+
+* Drag and drop card arrangement
+* Resizable widgets
+* Personalized layouts
+* Saved dashboard templates
+* AI recommendations
+* Interactive filtering
+* Cross-card filtering
+* Drill-through analytics
+* Real-time data refresh
+* Export dashboard
+* Share dashboard
+
+Show a realistic dashboard populated with multiple configurable cards and an open "Create Dashboard Card" configuration panel demonstrating the complete workflow.
+
+Ultra detailed enterprise product design, modern SaaS dashboard, professional analytics experience, 4K UI mockup, Figma design system, production-ready interface.
