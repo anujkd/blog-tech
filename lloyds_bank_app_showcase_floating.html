@@ -1,0 +1,431 @@
+
+<style>
+  :root {
+    --lloyds-green: #006A4D;
+    --lloyds-mid: #00A77E;
+    --lloyds-light: #E6F4F0;
+    --lloyds-dark: #004C38;
+    --lloyds-black: #1A1A1A;
+    --lloyds-gold: #D4A843;
+    --lloyds-gold-light: #F5E6BE;
+    --lloyds-red: #C0392B;
+    --lloyds-up: #00A77E;
+    --lloyds-down: #C0392B;
+  }
+
+  .showcase-wrap {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 12px 0;
+    position: relative;
+  }
+
+  /* Floating container */
+  .floating-panel {
+    background: #fff;
+    border-radius: 20px;
+    border: 1px solid #e0ede9;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,106,77,0.10);
+    animation: floatPanel 5s ease-in-out infinite;
+  }
+
+  @keyframes floatPanel {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+  }
+
+  /* Top bar */
+  .topbar {
+    background: var(--lloyds-green);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .topbar-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .horse-icon {
+    width: 28px; height: 28px;
+    background: var(--lloyds-gold);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+  }
+  .topbar-title {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .topbar-badge {
+    margin-left: auto;
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  /* Content area */
+  .content {
+    padding: 14px 16px;
+    background: #F7FAF9;
+  }
+
+  /* Metric row */
+  .metric-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .metric-card {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #d8ede8;
+    padding: 10px 10px 8px;
+    animation: slideInUp 0.6s ease both;
+  }
+  .metric-card:nth-child(1) { animation-delay: 0.1s; }
+  .metric-card:nth-child(2) { animation-delay: 0.25s; }
+  .metric-card:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes slideInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .metric-label {
+    font-size: 9px;
+    color: #6B8C85;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+  }
+  .metric-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--lloyds-black);
+    letter-spacing: -0.5px;
+  }
+  .metric-change {
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .up { color: var(--lloyds-up); }
+  .down { color: var(--lloyds-down); }
+
+  /* Chart card */
+  .chart-card {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #d8ede8;
+    padding: 12px;
+    margin-bottom: 10px;
+    animation: slideInUp 0.6s ease 0.3s both;
+  }
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .chart-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--lloyds-black);
+  }
+  .live-dot {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    color: var(--lloyds-green);
+    font-weight: 600;
+  }
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--lloyds-green);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  /* Sparkline SVG */
+  .sparkline-area { width: 100%; height: 56px; }
+
+  /* Blotter */
+  .blotter-card {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #d8ede8;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    animation: slideInUp 0.6s ease 0.45s both;
+  }
+  .blotter-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .blotter-title { font-size: 11px; font-weight: 600; color: var(--lloyds-black); }
+  .blotter-table { width: 100%; border-collapse: collapse; }
+  .blotter-table th {
+    font-size: 9px;
+    color: #6B8C85;
+    text-align: left;
+    padding: 0 0 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .blotter-table td {
+    font-size: 10px;
+    padding: 3px 0;
+    color: var(--lloyds-black);
+    border-top: 1px solid #EFF5F3;
+  }
+  .blotter-row { animation: fadeRow 0.4s ease both; }
+  .blotter-row:nth-child(1) { animation-delay: 0.5s; }
+  .blotter-row:nth-child(2) { animation-delay: 0.65s; }
+  .blotter-row:nth-child(3) { animation-delay: 0.8s; }
+  @keyframes fadeRow {
+    from { opacity: 0; transform: translateX(8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .side-buy { color: var(--lloyds-green); font-weight: 700; font-size: 9px; background: #E6F4F0; padding: 2px 5px; border-radius: 4px; }
+  .side-sell { color: var(--lloyds-red); font-weight: 700; font-size: 9px; background: #FDECEA; padding: 2px 5px; border-radius: 4px; }
+
+  /* Alert card */
+  .alert-card {
+    background: var(--lloyds-gold-light);
+    border-radius: 10px;
+    border: 1px solid #E8D08A;
+    padding: 9px 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    animation: slideInUp 0.6s ease 0.6s both;
+    margin-bottom: 10px;
+  }
+  .alert-icon { font-size: 14px; margin-top: 1px; }
+  .alert-text { font-size: 10px; color: #7A5500; line-height: 1.5; }
+  .alert-text strong { color: #5A3C00; font-weight: 700; display: block; font-size: 10px; }
+
+  /* Transaction list */
+  .txn-card {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #d8ede8;
+    padding: 10px 12px;
+    animation: slideInUp 0.6s ease 0.7s both;
+  }
+  .txn-header { font-size: 11px; font-weight: 600; color: var(--lloyds-black); margin-bottom: 7px; }
+  .txn-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-top: 1px solid #EFF5F3;
+    animation: fadeRow 0.4s ease both;
+  }
+  .txn-row:nth-child(2) { animation-delay: 0.75s; }
+  .txn-row:nth-child(3) { animation-delay: 0.85s; }
+  .txn-row:nth-child(4) { animation-delay: 0.95s; }
+  .txn-info { display: flex; align-items: center; gap: 7px; }
+  .txn-icon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--lloyds-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+  }
+  .txn-name { font-size: 10px; color: var(--lloyds-black); font-weight: 500; }
+  .txn-time { font-size: 9px; color: #8A9E9A; }
+  .txn-amount { font-size: 10px; font-weight: 700; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    background: #fff;
+    border-top: 1px solid #e0ede9;
+    display: flex;
+    padding: 8px 0;
+  }
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 8px;
+    color: #9BB5AF;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .nav-item.active { color: var(--lloyds-green); }
+  .nav-item i { font-size: 16px; }
+
+  /* Floating badges */
+  .float-badge {
+    position: absolute;
+    background: var(--lloyds-green);
+    color: #fff;
+    border-radius: 14px;
+    padding: 6px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,106,77,0.25);
+    z-index: 10;
+    pointer-events: none;
+  }
+  .badge-1 { top: 18px; left: -10px; animation: floatBadge1 6s ease-in-out infinite; }
+  .badge-2 { bottom: 90px; right: -10px; animation: floatBadge2 7s ease-in-out infinite; background: var(--lloyds-dark); }
+  @keyframes floatBadge1 { 0%,100%{transform:translateY(0) rotate(-2deg);} 50%{transform:translateY(-6px) rotate(-2deg);} }
+  @keyframes floatBadge2 { 0%,100%{transform:translateY(0) rotate(2deg);} 50%{transform:translateY(6px) rotate(2deg);} }
+</style>
+
+<div class="showcase-wrap">
+  <div class="float-badge badge-1">📈 Live Market Data</div>
+  <div class="float-badge badge-2">🔔 Smart Alerts</div>
+
+  <div class="floating-panel">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="topbar-logo">
+        <div class="horse-icon">🐴</div>
+        <span class="topbar-title">Lloyds Self-Service Portal</span>
+      </div>
+      <div class="topbar-badge">LIVE</div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- Metrics -->
+      <div class="metric-row">
+        <div class="metric-card">
+          <div class="metric-label">Portfolio</div>
+          <div class="metric-value">£2.4B</div>
+          <div class="metric-change up">▲ 1.8%</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Vol Today</div>
+          <div class="metric-value">84.2K</div>
+          <div class="metric-change up">▲ 3.1%</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">P&L</div>
+          <div class="metric-value">+£1.2M</div>
+          <div class="metric-change up">▲ 0.9%</div>
+        </div>
+      </div>
+
+      <!-- Sparkline chart -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Market Insights — FTSE 100</span>
+          <span class="live-dot"><span class="dot"></span>Live</span>
+        </div>
+        <svg class="sparkline-area" viewBox="0 0 460 56" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="spGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#006A4D" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="#006A4D" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M0,44 L18,40 L36,36 L54,38 L72,30 L90,28 L108,32 L126,24 L144,22 L162,26 L180,18 L198,16 L216,20 L234,14 L252,18 L270,12 L288,16 L306,8 L324,12 L342,10 L360,6 L378,10 L396,8 L414,4 L432,8 L460,4" fill="url(#spGrad)" stroke="none"/>
+          <path d="M0,44 L18,40 L36,36 L54,38 L72,30 L90,28 L108,32 L126,24 L144,22 L162,26 L180,18 L198,16 L216,20 L234,14 L252,18 L270,12 L288,16 L306,8 L324,12 L342,10 L360,6 L378,10 L396,8 L414,4 L432,8 L460,4" fill="none" stroke="#006A4D" stroke-width="2" stroke-linejoin="round"/>
+          <!-- Animated cursor dot -->
+          <circle cx="460" cy="4" r="3.5" fill="#006A4D">
+            <animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite"/>
+          </circle>
+          <!-- Grid lines -->
+          <line x1="0" y1="14" x2="460" y2="14" stroke="#E0EDE9" stroke-width="0.5" stroke-dasharray="4 4"/>
+          <line x1="0" y1="34" x2="460" y2="34" stroke="#E0EDE9" stroke-width="0.5" stroke-dasharray="4 4"/>
+        </svg>
+      </div>
+
+      <!-- Live Blotter -->
+      <div class="blotter-card">
+        <div class="blotter-header">
+          <span class="dot"></span>
+          <span class="blotter-title">Real-Time Blotter</span>
+        </div>
+        <table class="blotter-table">
+          <thead>
+            <tr>
+              <th>Instrument</th>
+              <th>Side</th>
+              <th>Qty</th>
+              <th style="text-align:right">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="blotter-row"><td>LLOY.L</td><td><span class="side-buy">BUY</span></td><td>50,000</td><td style="text-align:right;font-weight:600">51.24p</td></tr>
+            <tr class="blotter-row"><td>BARC.L</td><td><span class="side-sell">SELL</span></td><td>22,000</td><td style="text-align:right;font-weight:600">198.6p</td></tr>
+            <tr class="blotter-row"><td>GBPUSD</td><td><span class="side-buy">BUY</span></td><td>5M</td><td style="text-align:right;font-weight:600">1.2741</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Alert -->
+      <div class="alert-card">
+        <div class="alert-icon">⚡</div>
+        <div class="alert-text">
+          <strong>Threshold Alert — BARC.L</strong>
+          Price crossed 200p resistance. 3 rules triggered across 2 portfolios.
+        </div>
+      </div>
+
+      <!-- Transactions -->
+      <div class="txn-card">
+        <div class="txn-header">Recent Transactions</div>
+        <div class="txn-row">
+          <div class="txn-info">
+            <div class="txn-icon">💱</div>
+            <div><div class="txn-name">FX Settlement</div><div class="txn-time">09:41 GMT</div></div>
+          </div>
+          <div class="txn-amount up">+£480,000</div>
+        </div>
+        <div class="txn-row">
+          <div class="txn-info">
+            <div class="txn-icon">📊</div>
+            <div><div class="txn-name">Equity Trade</div><div class="txn-time">09:38 GMT</div></div>
+          </div>
+          <div class="txn-amount down">−£210,500</div>
+        </div>
+        <div class="txn-row">
+          <div class="txn-info">
+            <div class="txn-icon">🔄</div>
+            <div><div class="txn-name">Repo Rollover</div><div class="txn-time">09:30 GMT</div></div>
+          </div>
+          <div class="txn-amount up">+£1.1M</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom nav -->
+    <div class="bottom-nav">
+      <div class="nav-item active"><i class="ti ti-chart-bar"></i>Dashboard</div>
+      <div class="nav-item"><i class="ti ti-trending-up"></i>Markets</div>
+      <div class="nav-item"><i class="ti ti-list"></i>Blotter</div>
+      <div class="nav-item"><i class="ti ti-bell"></i>Alerts</div>
+      <div class="nav-item"><i class="ti ti-settings"></i>Settings</div>
+    </div>
+
+  </div>
+</div>
